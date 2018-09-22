@@ -4,8 +4,7 @@
 !*.*
 # Unignore all folders
 !*/
-
 # Unignore the make file
 !MakeFile
-
+# Ignore vs code folder
 .vscode
