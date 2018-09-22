@@ -1,0 +1,8 @@
+CC = gcc
+CXX = g++
+CXXFLAGS = -g -Wall --std=c++11
+
+SERVER = server.cpp
+
+server: $(SERVER)
+	$(CXX) $(CXXFLAGS) -o server $(SERVER)
