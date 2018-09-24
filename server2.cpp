@@ -26,10 +26,14 @@ int server_port = 5923;
 int MAX_CONNECTIONS_FOR_LISTEN_QUEUE = 10;
 int MAX_BYTES = 512;
 int MAX_USERNAME_SIZE = 15;
+std::string welcome_message = "Welcome to LICKING LEMON LOLLIPOPS IN LILLEHAMMER chat server\n\nType HELP to display available commands\n\n";
+std::string help_message = "List of options";
 
 std::map<int, std::string> users_by_fd;
+// std::map<char *, int> users_by_name;
 
 int server_socket_fd;
+
 int max_file_descriptor;
 
 /* amount of bytes read from read/recv and write/send will be stored in this variable */
@@ -64,7 +68,7 @@ void error(const char *message)
  * @param port the server port number to use
  * @return the created socket file descriptor
 */
-int create_and_bind_socket(int port)
+int createAndBindSocket(int port)
 {
 	/* Variable declarations */
 	int server_socket_fd;
@@ -97,10 +101,6 @@ int create_and_bind_socket(int port)
 	}
 
 	/* Associate socket with server IP and PORT */
-	/**
-	 * Check for 3 consecutive ports and 
-	 * 48791
-	*/
 	if (bind(server_socket_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
 	{
 		error("Failed to bind to socket");
@@ -127,7 +127,7 @@ void listen(int socketfd)
  * If no username is found, anonymous is returned
  * @param fd the file desctiptor to get user by
 */
-const char *get_user_by_fd(int fd)
+const char *getUserNameByFd(int fd)
 {
 	const char *username;
 	try
@@ -148,7 +148,7 @@ const char *get_user_by_fd(int fd)
  * @param body the message
  * @param length the length of the buffer
 */
-char *create_data_buffer(const char *username, char *body, int &length)
+char *createSendBuffer(const char *username, char *body, int &length)
 {
 	char *seperator = (char *)": ";
 	length = strlen(username) + strlen(seperator) + strlen(body);
@@ -164,7 +164,9 @@ char *create_data_buffer(const char *username, char *body, int &length)
  * Remove leading and trailing white space from string
  * Borrowed from http://www.cplusplus.com/faq/sequences/strings/trim/
 */
-inline std::string trim_string(const std::string &s, const std::string &delimiters = " \f\n\r\t\v")
+inline std::string trim_right_copy(
+	const std::string &s,
+	const std::string &delimiters = " \f\n\r\t\v")
 {
 	return s.substr(0, s.find_last_not_of(delimiters) + 1);
 }
@@ -172,12 +174,11 @@ inline std::string trim_string(const std::string &s, const std::string &delimite
 /**
  * Get file descriptor by username
  * @param username the username
- * @returns the file descriptor if found, else -1
 */
-int get_fd_by_user(char *username)
+int getFdByUserName(char *username)
 {
 	int fd = -1;
-	std::string username_to_find = std::string(trim_string(username));
+	std::string username_to_find = std::string(trim_right_copy(username));
 	std::map<int, std::string>::iterator it;
 	for (it = users_by_fd.begin(); it != users_by_fd.end(); ++it)
 	{
@@ -194,11 +195,11 @@ int get_fd_by_user(char *username)
  * @param body the message
  * @param current_fd the file descriptor of the sender
 */
-void send_to_all(char *body, int current_fd)
+void sendToAll(char *body, int current_fd)
 {
-	const char *username = get_user_by_fd(current_fd);
+	const char *username = getUserNameByFd(current_fd);
 	int length = 0;
-	char *buffer = create_data_buffer(username, body, length);
+	char *buffer = createSendBuffer(username, body, length);
 
 	for (int j = 0; j <= max_file_descriptor; j++)
 	{
@@ -225,11 +226,11 @@ void send_to_all(char *body, int current_fd)
  * @param current_fd the file descriptor of the sender
  * @param recv_fd the file descriptor of the recipient
 */
-void send_to_user(char *body, int current_fd, int recv_fd)
+void sendToUser(char *body, int current_fd, int recv_fd)
 {
-	const char *username = get_user_by_fd(current_fd);
+	const char *username = getUserNameByFd(current_fd);
 	int length = 0;
-	char *buffer = create_data_buffer(username, body, length);
+	char *buffer = createSendBuffer(username, body, length);
 
 	if (FD_ISSET(recv_fd, &active_set))
 	{
@@ -245,33 +246,21 @@ void send_to_user(char *body, int current_fd, int recv_fd)
 /**
  * Add a user to the map
 */
-void add_user(int fd, char *username, char *body)
+void addUser(int fd, char *username)
 {
-	if ((strlen(username) > MAX_USERNAME_SIZE || strlen(username) < 1) || body != NULL)
+	if (users_by_fd.count(fd) == 1)
 	{
-		std::string username_length_exceeded = "Username must be less than " + std::to_string(MAX_USERNAME_SIZE) + "\nUsername cannot contain white spaces\n";
-		write(fd, username_length_exceeded.c_str(), username_length_exceeded.length());
 	}
-	else
-	{
-		std::string username_to_add = std::string(trim_string(username));
-		if (users_by_fd.count(fd) == 1)
-		{
-			users_by_fd.erase(fd);
-		}
-		// Check if username exists already;
-		std::string welcome_user = "You are know known as " + std::string(username) + " and other users can send you private messages\n";
-		users_by_fd.insert(std::pair<int, std::string>(fd, username_to_add));
-		write(fd, welcome_user.c_str(), welcome_user.length());
-	}
+	std::string username_to_add = std::string(trim_right_copy(username));
+	users_by_fd.insert(std::pair<int, std::string>(fd, username_to_add));
 }
 
 /**
  * Display a list of all connected users with usernames
 */
-void display_users(int current_fd)
+void displayUsers(int current_fd)
 {
-	std::string users = "\nLIST OF UNANONYMOUS USERS\n";
+	std::string users = "\nLIST OF USERS\n";
 
 	std::map<int, std::string>::iterator it;
 	for (it = users_by_fd.begin(); it != users_by_fd.end(); ++it)
@@ -284,7 +273,6 @@ void display_users(int current_fd)
 	char *buffer = (char *)malloc(sizeof(char) * length);
 	memset(buffer, 0, length);
 	memcpy(buffer, users.c_str(), length);
-
 	write_bytes = write(current_fd, buffer, length);
 	if (write_bytes < 0)
 	{
@@ -292,11 +280,11 @@ void display_users(int current_fd)
 	}
 }
 
-void display_commands(int current_fd)
+void displayCommands(int current_fd)
 {
 	// TODO:: ADD ID commands!
 	std::string help_message = "\nAvailable commands are:\n\n";
-	help_message += "CONNECT <username>\tIdentify yourself with username, cannot include space\n";
+	help_message += "CONNECT <username>\tIdentify yourself with username\n";
 	help_message += "LEAVE\t\t\tLeave chatroom\n";
 	help_message += "WHO\t\t\tGet list of connected users\n";
 	help_message += "MSG <user> <message>\tSend a message to specific user\n";
@@ -306,62 +294,25 @@ void display_commands(int current_fd)
 }
 
 /**
- * Helper function to trim a c_str of leading/trailing whitespace
-*/
-void trim_cstr(char *cstr)
-{
-	if (cstr != NULL)
-	{
-		char temp[strlen(cstr)];
-		memset(temp, 0, strlen(cstr));
-		strncpy(temp, cstr, strlen(cstr) + 1);
-		std::string str(cstr);
-		std::string trimmed_str = trim_string(str);
-		memset(cstr, 0, trimmed_str.length());
-		strncpy(cstr, trimmed_str.c_str(), trimmed_str.length() + 1);
-	}
-	return;
-}
-
-void display_command_input(int fd)
-{
-	std::string input = "command: ";
-	write(fd, input.c_str(), input.length());
-}
-
-/**
- * Friendly welcomming message to the client
-*/
-void welcome_client(int fd)
-{
-	std::string welcome_message = "--------------------------------------------------\n";
-	welcome_message += "\t\t   WELCOME\n\n";
-	welcome_message += "LICKING LEMON LOLLIPOPS IN LILLEHAMMER CHAT SERVER\n";
-	welcome_message += "Type HELP to display available commands\n";
-	welcome_message += "--------------------------------------------------\n\n";
-	write(fd, welcome_message.c_str(), welcome_message.length());
-}
-
-/**
  * Parse the client input
  * @param buffer the buffer from the client
  * @param fd the clients file desctiptor
 */
-void parse_client_input(char *buffer, int fd)
+void parseInputFromClient(char *buffer, int fd)
 {
-	/* Create a local buffer from received buffer */
-	int length = strlen(buffer);
-	char local_buffer[length];
-	memset(local_buffer, 0, length);
-	strncpy(local_buffer, buffer, length + 1);
-
+	char local_buffer[read_bytes];
+	memset(local_buffer, 0, read_bytes);
+	strncpy(local_buffer, buffer, read_bytes + 1);
 	/* extract the first word in the string as the command */
-	char *command = strtok(local_buffer, " ");
-	trim_cstr(command);
-	char *sub_command = strtok(NULL, " ");
-	trim_cstr(sub_command);
+
+	const char *command = strtok(local_buffer, " ");
 
 	/* extract the second word in the string as sub_command/body */
+	char *sub_command = strtok(NULL, " ");
+
+	/* trim leading/trailing whitespace from command */
+	command = trim_right_copy(std::string(command)).c_str();
+	// sub_command = trim_right_copy(std::string(sub_command)).c_str();
 
 	if (command == ID)
 	{
@@ -369,23 +320,30 @@ void parse_client_input(char *buffer, int fd)
 	}
 	else if (command == CONNECT)
 	{
+		// SET USERNAME
 		if (sub_command != NULL)
 		{
-			printf("client with socket file descriptor %d registering with username %s\n", fd, sub_command);
-			char *body = strtok(NULL, " ");
-			add_user(fd, sub_command, body);
-			// display_command_input(fd);
+			printf("client with fd %d connecting with username %s\n", fd, sub_command);
+			if (strlen(trim_right_copy(std::string(sub_command)).c_str()) > MAX_USERNAME_SIZE)
+			{
+				std::string username_length_exceeded = "Username must be less than " + std::to_string(MAX_USERNAME_SIZE) + "\n";
+				write(fd, username_length_exceeded.c_str(), username_length_exceeded.length());
+			}
+			else
+			{
+				addUser(fd, sub_command);
+			}
 		}
 	}
 	else if (command == LEAVE)
 	{
 		/* print info for server */
-		std::string user_leaving = get_user_by_fd(fd);
+		std::string user_leaving = getUserNameByFd(fd);
 		printf("user %s has left the server\n", user_leaving.c_str());
 
 		/* inform other users I have left */
 		char *body = (char *)"I have left the chat for now, goodbye :)\n";
-		send_to_all(body, fd);
+		sendToAll(body, fd);
 
 		/* clean up my shit */
 		users_by_fd.erase(fd);
@@ -394,42 +352,40 @@ void parse_client_input(char *buffer, int fd)
 	}
 	else if (command == WHO)
 	{
-		display_users(fd);
-		// display_command_input(fd);
+		displayUsers(fd);
 	}
 	else if (command == MSG)
 	{
 		char *body = strtok(NULL, "");
-		const char *sending_user = get_user_by_fd(fd);
+		const char *sending_user = getUserNameByFd(fd);
 		if (sub_command == ALL)
 		{
 			/* print info for server */
 			printf("user %s sending message to everyone\n", sending_user);
 
 			/* send message to everyone */
-			send_to_all(body, fd);
+			sendToAll(body, fd);
 		}
 		else
 		{
 
-			int recipient = get_fd_by_user(sub_command);
+			int recipient = getFdByUserName(sub_command);
 
 			/* print info for the server */
-			printf("user %s sending message to %s\n", sending_user, get_user_by_fd(recipient));
+			printf("user %s sending message to %s\n", sending_user, getUserNameByFd(recipient));
 
-			/* Check if user exists */
+			/* Send message to user if exists */
 			if (recipient > 0)
 			{
-				/* Send message to user */
-				send_to_user(body, fd, recipient);
+				sendToUser(body, fd, recipient);
 			}
 			else
 			{
 				/* inform the asking client that there is no such user  */
 				std::string no_user_found_message = "No user found with username " + std::string(sub_command) + "\n";
 				write(fd, no_user_found_message.c_str(), no_user_found_message.length());
-				// display_command_input(fd);
 			}
+			// else write feedback
 		}
 	}
 	else if (command == CHANGE)
@@ -441,14 +397,14 @@ void parse_client_input(char *buffer, int fd)
 	}
 	else if (command == HELP)
 	{
-		display_commands(fd);
-		// display_command_input(fd);
+		// DISPLAY HELP
+		displayCommands(fd);
 	}
 	else
 	{
+		// INVALID COMMAND
 		std::string invalid_command = "Invalid command\nType HELP for list of available commands\n";
 		write(fd, invalid_command.c_str(), invalid_command.length());
-		// display_command_input(fd);
 	}
 }
 
@@ -478,7 +434,7 @@ int main(int argc, char const *argv[])
 	char buffer[MAX_BYTES];
 
 	/* Create the socket for the server */
-	server_socket_fd = create_and_bind_socket(server_port);
+	server_socket_fd = createAndBindSocket(server_port);
 	listen(server_socket_fd);
 
 	/* Zero the whole active set */
@@ -513,12 +469,10 @@ int main(int argc, char const *argv[])
 						error("Failed to establish connection");
 					}
 
-					printf("Connection established from host: %s port: %d with socket file descriptor: %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), new_server_socket_fd);
+					printf("Connection established from host: %s, port: %d with fd: %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), new_server_socket_fd);
 
-					/* Welcomes user to the server */
-					welcome_client(new_server_socket_fd);
+					write(new_server_socket_fd, welcome_message.c_str(), welcome_message.length());
 
-					// display_command_input(new_server_socket_fd);
 					/* Add new connection to active set */
 					FD_SET(new_server_socket_fd, &active_set);
 
@@ -553,12 +507,13 @@ int main(int argc, char const *argv[])
 					else
 					{
 						/* parse the client input */
-						// printf("bytes received: %d\n", read_bytes);
-						parse_client_input(buffer, i);
+						printf("bytes received: %d\n", read_bytes);
+						parseInputFromClient(buffer, i);
 					}
 				}
 			}
 		}
 	}
+
 	return 0;
 }
