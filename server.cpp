@@ -13,10 +13,19 @@
 #include <arpa/inet.h>
 #include <stdexcept>
 
+/**
+ * CHAT SERVER
+ * 
+ * much of the code in the main function is coded with inspiration from the following sources
+ * http://beej.us/guide/bgnet/html/single/bgnet.html#getpeername
+ * https://www.gnu.org/software/libc/manual/html_node/Server-Example.html
+*/
+
 /* GLOBAL VARIABLES */
 int server_port = 5923;
 int MAX_CONNECTIONS_FOR_LISTEN_QUEUE = 10;
-int MAX_BYTES = 256;
+int MAX_BYTES = 512;
+int MAX_USERNAME_SIZE = 15;
 std::string welcome_message = "Welcome to LICKING LEMON LOLLIPOPS IN LILLEHAMMER chat server\n\nType HELP to display available commands\n\n";
 std::string help_message = "List of options";
 
@@ -102,6 +111,7 @@ int createAndBindSocket(int port)
 
 /**
  * Wrapper function for the listen system call
+ * @param socketfd the file descriptor to listen on
 */
 void listen(int socketfd)
 {
@@ -115,6 +125,7 @@ void listen(int socketfd)
 /**
  * Gets the username assigned to the corresponding file descriptor
  * If no username is found, anonymous is returned
+ * @param fd the file desctiptor to get user by
 */
 const char *getUserNameByFd(int fd)
 {
@@ -151,6 +162,7 @@ char *createSendBuffer(const char *username, char *body, int &length)
 
 /**
  * Remove leading and trailing white space from string
+ * Borrowed from http://www.cplusplus.com/faq/sequences/strings/trim/
 */
 inline std::string trim_right_copy(
 	const std::string &s,
@@ -236,6 +248,9 @@ void sendToUser(char *body, int current_fd, int recv_fd)
 */
 void addUser(int fd, char *username)
 {
+	if (users_by_fd.count(fd) == 1)
+	{
+	}
 	std::string username_to_add = std::string(trim_right_copy(username));
 	users_by_fd.insert(std::pair<int, std::string>(fd, username_to_add));
 }
@@ -265,16 +280,39 @@ void displayUsers(int current_fd)
 	}
 }
 
-/**
- * Parse the buffer and act on commands
-*/
-void parseCommand(char *buffer, int fd)
+void displayCommands(int current_fd)
 {
-	const char *command = strtok(buffer, " ");
-	char *next_command = strtok(NULL, " ");
+	// TODO:: ADD ID commands!
+	std::string help_message = "\nAvailable commands are:\n\n";
+	help_message += "CONNECT <username>\tIdentify yourself with username\n";
+	help_message += "LEAVE\t\t\tLeave chatroom\n";
+	help_message += "WHO\t\t\tGet list of connected users\n";
+	help_message += "MSG <user> <message>\tSend a message to specific user\n";
+	help_message += "MSG ALL <message>\tSend message to all users connected\n";
+	help_message += "HELP\t\t\tSe available commands\n\n";
+	write(current_fd, help_message.c_str(), help_message.length());
+}
 
-	/* ugly converting char* to string to trim whitespace and convert back again :O */
+/**
+ * Parse the client input
+ * @param buffer the buffer from the client
+ * @param fd the clients file desctiptor
+*/
+void parseInputFromClient(char *buffer, int fd)
+{
+	char local_buffer[read_bytes];
+	memset(local_buffer, 0, read_bytes);
+	strncpy(local_buffer, buffer, read_bytes + 1);
+	/* extract the first word in the string as the command */
+
+	const char *command = strtok(local_buffer, " ");
+
+	/* extract the second word in the string as sub_command/body */
+	char *sub_command = strtok(NULL, " ");
+
+	/* trim leading/trailing whitespace from command */
 	command = trim_right_copy(std::string(command)).c_str();
+	// sub_command = trim_right_copy(std::string(sub_command)).c_str();
 
 	if (command == ID)
 	{
@@ -283,10 +321,18 @@ void parseCommand(char *buffer, int fd)
 	else if (command == CONNECT)
 	{
 		// SET USERNAME
-		if (next_command != NULL)
+		if (sub_command != NULL)
 		{
-			printf("client with fd %d connecting with username %s", fd, next_command);
-			addUser(fd, next_command);
+			printf("client with fd %d connecting with username %s\n", fd, sub_command);
+			if (strlen(trim_right_copy(std::string(sub_command)).c_str()) > MAX_USERNAME_SIZE)
+			{
+				std::string username_length_exceeded = "Username must be less than " + std::to_string(MAX_USERNAME_SIZE) + "\n";
+				write(fd, username_length_exceeded.c_str(), username_length_exceeded.length());
+			}
+			else
+			{
+				addUser(fd, sub_command);
+			}
 		}
 	}
 	else if (command == LEAVE)
@@ -310,23 +356,22 @@ void parseCommand(char *buffer, int fd)
 	}
 	else if (command == MSG)
 	{
-		if (next_command == ALL)
+		char *body = strtok(NULL, "");
+		const char *sending_user = getUserNameByFd(fd);
+		if (sub_command == ALL)
 		{
 			/* print info for server */
-			const char *sending_user = getUserNameByFd(fd);
 			printf("user %s sending message to everyone\n", sending_user);
 
 			/* send message to everyone */
-			char *body = strtok(NULL, "");
 			sendToAll(body, fd);
 		}
 		else
 		{
 
-			char *body = strtok(NULL, "");
-			const char *sending_user = getUserNameByFd(fd);
-			int recipient = getFdByUserName(next_command);
+			int recipient = getFdByUserName(sub_command);
 
+			/* print info for the server */
 			printf("user %s sending message to %s\n", sending_user, getUserNameByFd(recipient));
 
 			/* Send message to user if exists */
@@ -336,15 +381,16 @@ void parseCommand(char *buffer, int fd)
 			}
 			else
 			{
-				std::string message = "No user found with username " + std::string(next_command) + "\n";
-				write(fd, message.c_str(), message.length());
+				/* inform the asking client that there is no such user  */
+				std::string no_user_found_message = "No user found with username " + std::string(sub_command) + "\n";
+				write(fd, no_user_found_message.c_str(), no_user_found_message.length());
 			}
 			// else write feedback
 		}
 	}
 	else if (command == CHANGE)
 	{
-		if (next_command == ID)
+		if (sub_command == ID)
 		{
 			// CHANGE ID
 		}
@@ -352,11 +398,13 @@ void parseCommand(char *buffer, int fd)
 	else if (command == HELP)
 	{
 		// DISPLAY HELP
+		displayCommands(fd);
 	}
 	else
 	{
 		// INVALID COMMAND
-		write(fd, "Invalid command you fool!\n\n", 27);
+		std::string invalid_command = "Invalid command\nType HELP for list of available commands\n";
+		write(fd, invalid_command.c_str(), invalid_command.length());
 	}
 }
 
@@ -458,28 +506,9 @@ int main(int argc, char const *argv[])
 					}
 					else
 					{
-						// tjekka buffer og acta a rett command
-						printf("buffer received from client: %s\n", buffer);
-						parseCommand(buffer, i);
-
-						/* MSG ALL */
-						/* Loop through all connected clients */
-						// for (int j = 0; j <= max_file_descriptor; j++)
-						// {
-						// 	/* Check if the client is in the active set */
-						// 	if (FD_ISSET(j, &active_set))
-						// 	{
-						// 		/* prevent the received message from the client from beeing sent to the server and himself */
-						// 		if (j != server_socket_fd && j != i)
-						// 		{
-						// 			write_bytes = write(j, buffer, read_bytes);
-						// 			if (write_bytes < 0)
-						// 			{
-						// 				error("Sending to clients");
-						// 			}
-						// 		}
-						// 	}
-						// }
+						/* parse the client input */
+						printf("bytes received: %d\n", read_bytes);
+						parseInputFromClient(buffer, i);
 					}
 				}
 			}
