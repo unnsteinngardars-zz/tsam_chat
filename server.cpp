@@ -112,6 +112,10 @@ void listen(int socketfd)
 	}
 }
 
+/**
+ * Gets the username assigned to the corresponding file descriptor
+ * If no username is found, anonymous is returned
+*/
 const char *getUserNameByFd(int fd)
 {
 	const char *username;
@@ -121,20 +125,33 @@ const char *getUserNameByFd(int fd)
 	}
 	catch (const std::out_of_range &e)
 	{
-		return NULL;
+		username = (char *)"anonymous";
 	}
-	printf("username: %s\n", username);
 	return username;
-	// std::map<int, const char *>::iterator it;
-	// it = users_by_fd.find(fd);
-	// if (it == users_by_fd.end())
-	// {
-	// 	return NULL;
-	// }
-	// return it->second;
-	// return users_by_fd.find(fd)->second;
 }
 
+/**
+ * Returns a allocated send buffer from body prefixed with username/anonymous
+ * Remember to free afterwards!
+ * @param username the username to prefix
+ * @param body the message
+ * @param length the length of the buffer
+*/
+char *createSendBuffer(const char *username, char *body, int &length)
+{
+	char *seperator = (char *)": ";
+	length = strlen(username) + strlen(seperator) + strlen(body);
+	char *buffer = (char *)malloc(sizeof(char) * length);
+	memset(buffer, 0, length);
+	memcpy(buffer, username, strlen(username));
+	memcpy(buffer + strlen(username), seperator, strlen(seperator));
+	memcpy(buffer + strlen(username) + strlen(seperator), body, strlen(body));
+	return buffer;
+}
+
+/**
+ * Remove leading and trailing white space from string
+*/
 inline std::string trim_right_copy(
 	const std::string &s,
 	const std::string &delimiters = " \f\n\r\t\v")
@@ -142,39 +159,35 @@ inline std::string trim_right_copy(
 	return s.substr(0, s.find_last_not_of(delimiters) + 1);
 }
 
+/**
+ * Get file descriptor by username
+ * @param username the username
+*/
 int getFdByUserName(char *username)
 {
 	int fd = -1;
 	std::string username_to_find = std::string(trim_right_copy(username));
-	printf("username to look for: %s\n", username_to_find.c_str());
-
 	std::map<int, std::string>::iterator it;
 	for (it = users_by_fd.begin(); it != users_by_fd.end(); ++it)
 	{
-		printf("FD: %d USER: %s\n", it->first, it->second.c_str());
 		if (!it->second.compare(username_to_find))
 		{
-			printf("user %s found!\n", it->second.c_str());
 			fd = it->first;
 		}
 	}
 	return fd;
-	// return users_by_name.find(username)->second;
 }
 
 /**
- * Send message in body to all clients
+ * Send a message body to all users
+ * @param body the message
+ * @param current_fd the file descriptor of the sender
 */
 void sendToAll(char *body, int current_fd)
 {
-	// Check if current_fd has corresponding user name
-	// const char *username = getUserNameByFd(current_fd);
-
-	int length = strlen(body);
-	char buffer[length];
-	memset(buffer, 0, length);
-	memcpy(buffer, body, length);
-	printf("length: %d", length);
+	const char *username = getUserNameByFd(current_fd);
+	int length = 0;
+	char *buffer = createSendBuffer(username, body, length);
 
 	for (int j = 0; j <= max_file_descriptor; j++)
 	{
@@ -192,14 +205,20 @@ void sendToAll(char *body, int current_fd)
 			}
 		}
 	}
+	free(buffer);
 }
 
+/**
+ * Send a message body to a single user
+ * @param body the message
+ * @param current_fd the file descriptor of the sender
+ * @param recv_fd the file descriptor of the recipient
+*/
 void sendToUser(char *body, int current_fd, int recv_fd)
 {
-	int length = strlen(body);
-	char buffer[length];
-	memset(buffer, 0, length);
-	memcpy(buffer, body, length);
+	const char *username = getUserNameByFd(current_fd);
+	int length = 0;
+	char *buffer = createSendBuffer(username, body, length);
 
 	if (FD_ISSET(recv_fd, &active_set))
 	{
@@ -209,24 +228,57 @@ void sendToUser(char *body, int current_fd, int recv_fd)
 			error("Sending to client");
 		}
 	}
+	free(buffer);
 }
 
+/**
+ * Add a user to the map
+*/
 void addUser(int fd, char *username)
 {
 	std::string username_to_add = std::string(trim_right_copy(username));
 	users_by_fd.insert(std::pair<int, std::string>(fd, username_to_add));
 }
 
+/**
+ * Display a list of all connected users with usernames
+*/
+void displayUsers(int current_fd)
+{
+	std::string users = "\nLIST OF USERS\n";
+
+	std::map<int, std::string>::iterator it;
+	for (it = users_by_fd.begin(); it != users_by_fd.end(); ++it)
+	{
+		users += it->second + "\n";
+	}
+	users += "\n";
+
+	int length = strlen(users.c_str());
+	char *buffer = (char *)malloc(sizeof(char) * length);
+	memset(buffer, 0, length);
+	memcpy(buffer, users.c_str(), length);
+	write_bytes = write(current_fd, buffer, length);
+	if (write_bytes < 0)
+	{
+		error("Sending user list to self");
+	}
+}
+
+/**
+ * Parse the buffer and act on commands
+*/
 void parseCommand(char *buffer, int fd)
 {
-	char *command = strtok(buffer, " ");
+	const char *command = strtok(buffer, " ");
 	char *next_command = strtok(NULL, " ");
 
-	printf("command: %s, next_command: %s\n", command, next_command);
+	/* ugly converting char* to string to trim whitespace and convert back again :O */
+	command = trim_right_copy(std::string(command)).c_str();
 
 	if (command == ID)
 	{
-		// UNAUTHORIZED UNLESS SERVER
+		// TODO :: implement this fucker!
 	}
 	else if (command == CONNECT)
 	{
@@ -239,42 +291,53 @@ void parseCommand(char *buffer, int fd)
 	}
 	else if (command == LEAVE)
 	{
-		// LEAVE CHAT :(
+		/* print info for server */
+		std::string user_leaving = getUserNameByFd(fd);
+		printf("user %s has left the server\n", user_leaving.c_str());
+
+		/* inform other users I have left */
+		char *body = (char *)"I have left the chat for now, goodbye :)\n";
+		sendToAll(body, fd);
+
+		/* clean up my shit */
+		users_by_fd.erase(fd);
+		FD_CLR(fd, &active_set);
+		close(fd);
 	}
 	else if (command == WHO)
 	{
-		// SEND LIST OF USERS
+		displayUsers(fd);
 	}
 	else if (command == MSG)
 	{
 		if (next_command == ALL)
 		{
-			// SEND TO ALL
-			char *body = strtok(NULL, "");
+			/* print info for server */
 			const char *sending_user = getUserNameByFd(fd);
-			printf("username: %s fd: %d sending message to everyone\n", sending_user, fd);
+			printf("user %s sending message to everyone\n", sending_user);
+
+			/* send message to everyone */
+			char *body = strtok(NULL, "");
 			sendToAll(body, fd);
 		}
 		else
 		{
-			// SEND TO NEXTCOMMAND USER if exists
+
 			char *body = strtok(NULL, "");
-
-			// const char *sending_user = getUserNameByFd(fd);
-
+			const char *sending_user = getUserNameByFd(fd);
 			int recipient = getFdByUserName(next_command);
 
-			// const char *recipient_user = getUserNameByFd(recipient);
+			printf("user %s sending message to %s\n", sending_user, getUserNameByFd(recipient));
 
-			printf("next_command in MSG ALL: %s\n", next_command);
-
+			/* Send message to user if exists */
 			if (recipient > 0)
 			{
 				sendToUser(body, fd, recipient);
 			}
 			else
 			{
-				write(fd, "abbababb\n", 9);
+				std::string message = "No user found with username " + std::string(next_command) + "\n";
+				write(fd, message.c_str(), message.length());
 			}
 			// else write feedback
 		}
@@ -295,7 +358,6 @@ void parseCommand(char *buffer, int fd)
 		// INVALID COMMAND
 		write(fd, "Invalid command you fool!\n\n", 27);
 	}
-	printf("END OF COMMAND PARSER FUNCTION\n");
 }
 
 int main(int argc, char const *argv[])
@@ -362,14 +424,6 @@ int main(int argc, char const *argv[])
 					printf("Connection established from host: %s, port: %d with fd: %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), new_server_socket_fd);
 
 					write(new_server_socket_fd, welcome_message.c_str(), welcome_message.length());
-
-					// /* Add user to user maps with anonymous name plus anonymous_counter*/
-					// std::string anonymous_counter_string = std::to_string(anonymous_counter);
-					// std::string anonymous_string = "anonymous" + anonymous_counter_string;
-					// const char *anonymous = anonymous_string.c_str();
-
-					// users_by_fd.insert(std::pair<int, const char *>(new_server_socket_fd, anonymous));
-					// users_by_name.insert(std::pair<const char *, int>(anonymous, new_server_socket_fd));
 
 					/* Add new connection to active set */
 					FD_SET(new_server_socket_fd, &active_set);
