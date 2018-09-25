@@ -13,6 +13,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdexcept>
+#include <time.h>
 
 /**
  * CHAT SERVER
@@ -26,6 +27,7 @@
 
 int MIN_PORT = 1024;
 int MAX_PORT = 65532;
+clock_t start, stop;
 
 int MAX_CONNECTIONS_FOR_LISTEN_QUEUE = 10;
 int MAX_BYTES = 512;
@@ -55,6 +57,17 @@ const std::string MSG = "MSG";
 const std::string CHANGE = "CHANGE";
 const std::string ALL = "ALL";
 const std::string HELP = "HELP";
+
+void start_timer()
+{
+	start = clock();
+}
+
+double stop_timer(clock_t start)
+{
+	stop = clock();
+	return ((double)(stop - start)) / CLOCKS_PER_SEC;
+}
 
 /**
  * Custom error function
@@ -97,6 +110,7 @@ int create_socket()
 
 void find_and_bind()
 {
+	start_timer();
 	struct sockaddr_in server;
 	struct sockaddr_in server_second;
 	struct sockaddr_in server_third;
@@ -157,6 +171,9 @@ void find_and_bind()
 			error("Failed to bind to sockets");
 		}
 	}
+
+	double timer = stop_timer(start);
+	printf("time: %f\n", timer);
 }
 
 /**
@@ -277,19 +294,27 @@ void send_to_all(char *body, int current_fd)
 */
 void send_to_user(char *body, int current_fd, int recv_fd)
 {
-	const char *username = get_user_by_fd(current_fd);
-	int length = 0;
-	char *buffer = create_data_buffer(username, body, length);
-
-	if (FD_ISSET(recv_fd, &active_set))
+	if (users_by_fd.count(current_fd) == 1)
 	{
-		write_bytes = write(recv_fd, buffer, length);
-		if (write_bytes < 0)
+		const char *username = get_user_by_fd(current_fd);
+		int length = 0;
+		char *buffer = create_data_buffer(username, body, length);
+
+		if (FD_ISSET(recv_fd, &active_set))
 		{
-			error("Sending to client");
+			write_bytes = write(recv_fd, buffer, length);
+			if (write_bytes < 0)
+			{
+				error("Sending to client");
+			}
 		}
+		free(buffer);
 	}
-	free(buffer);
+	else
+	{
+		std::string no_username = "You must use register with a username before sending private messages\n";
+		write(current_fd, no_username.c_str(), no_username.length());
+	}
 }
 
 /**
