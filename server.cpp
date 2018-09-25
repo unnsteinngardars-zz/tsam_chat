@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -28,6 +29,7 @@ int MAX_BYTES = 512;
 int MAX_USERNAME_SIZE = 15;
 
 std::map<int, std::string> users_by_fd;
+std::set<std::string> usernames;
 
 int server_socket_fd;
 int max_file_descriptor;
@@ -57,6 +59,10 @@ void error(const char *message)
 	exit(EXIT_FAILURE);
 }
 
+void search_for_open_ports()
+{
+}
+
 /**
  * Create and Bind the socket
  * Create a socket file descriptor
@@ -64,14 +70,10 @@ void error(const char *message)
  * @param port the server port number to use
  * @return the created socket file descriptor
 */
-int create_and_bind_socket(int port)
+int create_socket(int port)
 {
 	/* Variable declarations */
 	int server_socket_fd;
-	struct sockaddr_in server;
-
-	/* memset with zeroes to populate sin_zero with zeroes */
-	memset(&server, 0, sizeof(server));
 
 	/* Create the socket file descriptor */
 	server_socket_fd = socket(PF_INET, SOCK_STREAM, 0);
@@ -81,20 +83,29 @@ int create_and_bind_socket(int port)
 	{
 		error("Failed creating socket");
 	}
-
-	/* Set address information */
-	server.sin_family = AF_INET;
-	// Use INADDR_ANY to bind to the local IP address
-	server.sin_addr.s_addr = INADDR_ANY;
-	// htons (host to network short) used to convert the port from host byte order to network byte order
-	server.sin_port = htons(port);
-
 	/* Prevent the Address aldready in use message when the socket still hangs around in the kernel after server shutting down */
 	int the_integer_called_one = 1;
 	if (setsockopt(server_socket_fd, SOL_SOCKET, SO_REUSEADDR, &the_integer_called_one, sizeof(the_integer_called_one)) < 0)
 	{
 		error("Failed to prevent \"Address aldready in use\" message");
 	}
+
+	return server_socket_fd;
+}
+
+void find_and_bind(int server_socket_fd)
+{
+	struct sockaddr_in server;
+	int port = 5923;
+
+	/* memset with zeroes to populate sin_zero with zeroes */
+	memset(&server, 0, sizeof(server));
+	/* Set address information */
+	server.sin_family = AF_INET;
+	// Use INADDR_ANY to bind to the local IP address
+	server.sin_addr.s_addr = INADDR_ANY;
+	// htons (host to network short) used to convert the port from host byte order to network byte order
+	server.sin_port = htons(port);
 
 	/* Associate socket with server IP and PORT */
 	/**
@@ -105,8 +116,6 @@ int create_and_bind_socket(int port)
 	{
 		error("Failed to bind to socket");
 	}
-
-	return server_socket_fd;
 }
 
 /**
@@ -255,14 +264,24 @@ void add_user(int fd, char *username, char *body)
 	else
 	{
 		std::string username_to_add = std::string(trim_string(username));
-		if (users_by_fd.count(fd) == 1)
-		{
-			users_by_fd.erase(fd);
-		}
 		// Check if username exists already;
-		std::string welcome_user = "You are know known as " + std::string(username) + " and other users can send you private messages\n";
-		users_by_fd.insert(std::pair<int, std::string>(fd, username_to_add));
-		write(fd, welcome_user.c_str(), welcome_user.length());
+		if (usernames.count(username_to_add) == 1)
+		{
+			std::string username_taken = "Username taken, please pick another one.\n";
+			write(fd, username_taken.c_str(), username_taken.length());
+		}
+		else if (users_by_fd.count(fd) == 1)
+		{
+			std::string already_logged_in = "You have already picked a username\n";
+			write(fd, already_logged_in.c_str(), already_logged_in.length());
+		}
+		else
+		{
+			std::string welcome_user = "You are know known as " + std::string(username) + " and other users can send you private messages\n";
+			users_by_fd.insert(std::pair<int, std::string>(fd, username_to_add));
+			usernames.insert(username_to_add);
+			write(fd, welcome_user.c_str(), welcome_user.length());
+		}
 	}
 }
 
@@ -292,6 +311,10 @@ void display_users(int current_fd)
 	}
 }
 
+/**
+ * Display a list of commands
+ * @param the fd of the user requesting the list
+*/
 void display_commands(int current_fd)
 {
 	// TODO:: ADD ID commands!
@@ -405,18 +428,14 @@ void parse_client_input(char *buffer, int fd)
 		{
 			/* print info for server */
 			printf("user %s sending message to everyone\n", sending_user);
-
 			/* send message to everyone */
 			send_to_all(body, fd);
 		}
 		else
 		{
-
 			int recipient = get_fd_by_user(sub_command);
-
 			/* print info for the server */
 			printf("user %s sending message to %s\n", sending_user, get_user_by_fd(recipient));
-
 			/* Check if user exists */
 			if (recipient > 0)
 			{
@@ -463,7 +482,6 @@ int main(int argc, char const *argv[])
 	 * Search for three consecutive ports and pick for port knocking
 	 * server will be on skel and hardcoded port might be used by another server
 	*/
-	server_port = 5923;
 
 	/* the struct for the incomming client info */
 	struct sockaddr_in client;
@@ -478,7 +496,9 @@ int main(int argc, char const *argv[])
 	char buffer[MAX_BYTES];
 
 	/* Create the socket for the server */
-	server_socket_fd = create_and_bind_socket(server_port);
+	server_socket_fd = create_socket(server_port);
+	find_and_bind(server_socket_fd);
+
 	listen(server_socket_fd);
 
 	/* Zero the whole active set */
