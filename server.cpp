@@ -23,15 +23,21 @@
 */
 
 /* GLOBAL VARIABLES */
-int server_port = 5923;
+
+int MIN_PORT = 1024;
+int MAX_PORT = 65532;
+
 int MAX_CONNECTIONS_FOR_LISTEN_QUEUE = 10;
 int MAX_BYTES = 512;
-int MAX_USERNAME_SIZE = 15;
+int MAX_USERNAME_SIZE = 15; //update feedback string if this value is changed
 
 std::map<int, std::string> users_by_fd;
 std::set<std::string> usernames;
 
 int server_socket_fd;
+int server_socket_fd_second;
+int server_socket_fd_third;
+
 int max_file_descriptor;
 
 /* amount of bytes read from read/recv and write/send will be stored in this variable */
@@ -59,10 +65,6 @@ void error(const char *message)
 	exit(EXIT_FAILURE);
 }
 
-void search_for_open_ports()
-{
-}
-
 /**
  * Create and Bind the socket
  * Create a socket file descriptor
@@ -70,7 +72,7 @@ void search_for_open_ports()
  * @param port the server port number to use
  * @return the created socket file descriptor
 */
-int create_socket(int port)
+int create_socket()
 {
 	/* Variable declarations */
 	int server_socket_fd;
@@ -93,28 +95,67 @@ int create_socket(int port)
 	return server_socket_fd;
 }
 
-void find_and_bind(int server_socket_fd)
+void find_and_bind()
 {
 	struct sockaddr_in server;
-	int port = 5923;
+	struct sockaddr_in server_second;
+	struct sockaddr_in server_third;
 
+	bool found = false;
 	/* memset with zeroes to populate sin_zero with zeroes */
 	memset(&server, 0, sizeof(server));
+	memset(&server, 0, sizeof(server_second));
+	memset(&server, 0, sizeof(server_third));
 	/* Set address information */
 	server.sin_family = AF_INET;
+	server_second.sin_family = AF_INET;
+	server_third.sin_family = AF_INET;
 	// Use INADDR_ANY to bind to the local IP address
 	server.sin_addr.s_addr = INADDR_ANY;
-	// htons (host to network short) used to convert the port from host byte order to network byte order
-	server.sin_port = htons(port);
+	server_second.sin_addr.s_addr = INADDR_ANY;
+	server_third.sin_addr.s_addr = INADDR_ANY;
 
-	/* Associate socket with server IP and PORT */
-	/**
-	 * Check for 3 consecutive ports and 
-	 * 48791
-	*/
-	if (bind(server_socket_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
+	/* Associate sockets with server IP and PORTS */
+	while (!found)
 	{
-		error("Failed to bind to socket");
+		for (int first_port = MIN_PORT; first_port < MAX_PORT; ++first_port)
+		{
+			int second_port = first_port + 1;
+			int third_port = first_port + 2;
+			// htons (host to network short) used to convert the port from host byte order to network byte order
+			server.sin_port = htons(first_port);
+			server_second.sin_port = htons(second_port);
+			server_third.sin_port = htons(third_port);
+
+			if (bind(server_socket_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
+			{
+				continue;
+			}
+			else
+			{
+				if (bind(server_socket_fd_second, (struct sockaddr *)&server_second, sizeof(server_second)) < 0)
+				{
+					continue;
+				}
+				else
+				{
+					if (bind(server_socket_fd_third, (struct sockaddr *)&server_third, sizeof(server_third)) < 0)
+					{
+						continue;
+					}
+					else
+					{
+						printf("Server listening to incomming sockets on ports %d, %d and %d\n", first_port, second_port, third_port);
+						printf("Knocking sequence is %d %d %d\n", second_port, first_port, third_port);
+						found = true;
+					}
+				}
+			}
+		}
+		if (!found)
+		{
+			error("Failed to bind to sockets");
+		}
 	}
 }
 
@@ -258,7 +299,7 @@ void add_user(int fd, char *username, char *body)
 {
 	if ((strlen(username) > MAX_USERNAME_SIZE || strlen(username) < 1) || body != NULL)
 	{
-		std::string username_length_exceeded = "Username must be less than " + std::to_string(MAX_USERNAME_SIZE) + "\nUsername cannot contain white spaces\n";
+		std::string username_length_exceeded = "Username must be less than 15 characters\nUsername cannot contain white spaces\n";
 		write(fd, username_length_exceeded.c_str(), username_length_exceeded.length());
 	}
 	else
@@ -496,15 +537,22 @@ int main(int argc, char const *argv[])
 	char buffer[MAX_BYTES];
 
 	/* Create the socket for the server */
-	server_socket_fd = create_socket(server_port);
-	find_and_bind(server_socket_fd);
+	server_socket_fd = create_socket();
+	server_socket_fd_second = create_socket();
+	server_socket_fd_third = create_socket();
+
+	find_and_bind();
 
 	listen(server_socket_fd);
+	listen(server_socket_fd_second);
+	listen(server_socket_fd_third);
 
 	/* Zero the whole active set */
 	FD_ZERO(&active_set);
 	/* Set the server file descriptor in the active set */
 	FD_SET(server_socket_fd, &active_set);
+	// FD_SET(server_socket_fd_second, &active_set);
+	// FD_SET(server_socket_fd_third, &active_set);
 
 	max_file_descriptor = server_socket_fd;
 
