@@ -27,7 +27,8 @@
 
 int MIN_PORT = 1024;
 int MAX_PORT = 65532;
-clock_t start, stop;
+
+int first_port, second_port, third_port;
 
 int MAX_CONNECTIONS_FOR_LISTEN_QUEUE = 10;
 int MAX_BYTES = 512;
@@ -35,6 +36,10 @@ int MAX_USERNAME_SIZE = 15; //update feedback string if this value is changed
 
 std::map<int, std::string> users_by_fd;
 std::set<std::string> usernames;
+
+struct sockaddr_in server;
+struct sockaddr_in server_second;
+struct sockaddr_in server_third;
 
 int server_socket_fd;
 int server_socket_fd_second;
@@ -57,17 +62,6 @@ const std::string MSG = "MSG";
 const std::string CHANGE = "CHANGE";
 const std::string ALL = "ALL";
 const std::string HELP = "HELP";
-
-void start_timer()
-{
-	start = clock();
-}
-
-double stop_timer(clock_t start)
-{
-	stop = clock();
-	return ((double)(stop - start)) / CLOCKS_PER_SEC;
-}
 
 /**
  * Custom error function
@@ -110,16 +104,12 @@ int create_socket()
 
 void find_and_bind()
 {
-	start_timer();
-	struct sockaddr_in server;
-	struct sockaddr_in server_second;
-	struct sockaddr_in server_third;
-
 	bool found = false;
+
 	/* memset with zeroes to populate sin_zero with zeroes */
 	memset(&server, 0, sizeof(server));
-	memset(&server, 0, sizeof(server_second));
-	memset(&server, 0, sizeof(server_third));
+	memset(&server_second, 0, sizeof(server_second));
+	memset(&server_third, 0, sizeof(server_third));
 	/* Set address information */
 	server.sin_family = AF_INET;
 	server_second.sin_family = AF_INET;
@@ -132,10 +122,10 @@ void find_and_bind()
 	/* Associate sockets with server IP and PORTS */
 	while (!found)
 	{
-		for (int first_port = MIN_PORT; first_port < MAX_PORT; ++first_port)
+		for (first_port = MIN_PORT; first_port < MAX_PORT; ++first_port)
 		{
-			int second_port = first_port + 1;
-			int third_port = first_port + 2;
+			second_port = first_port + 1;
+			third_port = first_port + 2;
 			// htons (host to network short) used to convert the port from host byte order to network byte order
 			server.sin_port = htons(first_port);
 			server_second.sin_port = htons(second_port);
@@ -159,8 +149,6 @@ void find_and_bind()
 					}
 					else
 					{
-						printf("Server listening to incomming sockets on ports %d, %d and %d\n", first_port, second_port, third_port);
-						printf("Knocking sequence is %d %d %d\n", second_port, first_port, third_port);
 						found = true;
 					}
 				}
@@ -171,9 +159,8 @@ void find_and_bind()
 			error("Failed to bind to sockets");
 		}
 	}
-
-	double timer = stop_timer(start);
-	printf("time: %f\n", timer);
+	printf("Server listening to incomming sockets on ports %d, %d and %d\n", first_port, second_port, third_port);
+	printf("Knocking sequence is %d %d %d\n", third_port, second_port, first_port);
 }
 
 /**
@@ -187,6 +174,27 @@ void listen(int socketfd)
 	{
 		error("Failed to listen");
 	}
+}
+
+void rebind_and_listen(int i)
+{
+	struct sockaddr_in temp;
+	memset(&temp, 0, sizeof(temp));
+
+	temp.sin_family = AF_INET;
+	temp.sin_addr.s_addr = INADDR_ANY;
+	temp.sin_port = htons(1025);
+
+	if (bind(i, (struct sockaddr *)&temp, sizeof(temp)) < 0)
+	{
+		error("failed to rebind socket");
+	}
+
+	if (listen(i, MAX_CONNECTIONS_FOR_LISTEN_QUEUE) < 0)
+	{
+		error("Failed to listen");
+	}
+	FD_SET(i, &active_set);
 }
 
 /**
@@ -436,6 +444,7 @@ void welcome_client(int fd)
  * @param buffer the buffer from the client
  * @param fd the clients file desctiptor
 */
+
 void parse_client_input(char *buffer, int fd)
 {
 	/* Create a local buffer from received buffer */
@@ -539,15 +548,6 @@ void parse_client_input(char *buffer, int fd)
 
 int main(int argc, char const *argv[])
 {
-	/* Variable declarations */
-	int new_server_socket_fd, server_port;
-
-	/* server port */
-	/**
-	 * TODO: Implement port knocking
-	 * Search for three consecutive ports and pick for port knocking
-	 * server will be on skel and hardcoded port might be used by another server
-	*/
 
 	/* the struct for the incomming client info */
 	struct sockaddr_in client;
@@ -576,17 +576,19 @@ int main(int argc, char const *argv[])
 	FD_ZERO(&active_set);
 	/* Set the server file descriptor in the active set */
 	FD_SET(server_socket_fd, &active_set);
-	// FD_SET(server_socket_fd_second, &active_set);
-	// FD_SET(server_socket_fd_third, &active_set);
+	FD_SET(server_socket_fd_second, &active_set);
+	FD_SET(server_socket_fd_third, &active_set);
 
-	max_file_descriptor = server_socket_fd;
+	printf("server fd 1: %d, 2: %d, 3: %d\n", server_socket_fd, server_socket_fd_second, server_socket_fd_third);
+
+	max_file_descriptor = server_socket_fd_third;
 
 	while (1)
 	{
 		/* copy active_set to read_set to not loose information about active_set status since select alters the set passed as argument */
 		read_set = active_set;
 		/* wait for incomming client/s */
-		if (select(max_file_descriptor + 1, &read_set, NULL, NULL, NULL) < 0)
+		if (select(max_file_descriptor + 1, &read_set, NULL, NULL, 0) < 0)
 		{
 			error("Failed to receive client connection");
 		}
@@ -600,7 +602,7 @@ int main(int argc, char const *argv[])
 				{
 					/* New connection */
 					client_length = sizeof(client);
-					new_server_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client, &client_length);
+					int new_server_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client, &client_length);
 					if (new_server_socket_fd < 0)
 					{
 						error("Failed to establish connection");
@@ -621,6 +623,22 @@ int main(int argc, char const *argv[])
 						max_file_descriptor = new_server_socket_fd;
 					}
 				}
+				else if (i == server_socket_fd_second)
+				{
+
+					close(i);
+					FD_CLR(i, &active_set);
+					i = create_socket();
+					rebind_and_listen(i);
+				}
+				else if (i == server_socket_fd_third)
+				{
+					close(i);
+					FD_CLR(i, &active_set);
+					i = create_socket();
+					rebind_and_listen(i);
+				}
+
 				/* i is some client already connected */
 				else
 				{

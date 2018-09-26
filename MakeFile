@@ -2,7 +2,10 @@ CC = gcc
 CXX = g++
 CXXFLAGS = -g -Wall --std=c++11
 
-SERVER = server.cpp
+SERVER = _server.cpp
 
 server: $(SERVER)
 	$(CXX) $(CXXFLAGS) -o server $(SERVER)
+
+test: _server.cpp
+	$(CXX) $(CXXFLAGS) -o _server _server.cpp
