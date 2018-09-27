@@ -13,7 +13,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdexcept>
-#include <time.h>
+// #include <time.h>
+
+typedef std::chrono::high_resolution_clock::time_point time_point;
 
 /**
  * CHAT SERVER
@@ -25,8 +27,13 @@
 
 /* GLOBAL VARIABLES */
 
+clock_t start, stop;
+time_point starter, stopper;
+
 int MIN_PORT = 1024;
 int MAX_PORT = 65532;
+
+int MAX_CONNECT_SECONDS = 4;
 
 int first_port, second_port, third_port;
 
@@ -72,6 +79,16 @@ void error(const char *message)
 	exit(EXIT_FAILURE);
 }
 
+time_point set_timer()
+{
+	return std::chrono::high_resolution_clock::now();
+}
+
+int get_time_in_seconds(time_point start, time_point end)
+{
+	return (int)std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+}
+
 /**
  * Create and Bind the socket
  * Create a socket file descriptor
@@ -92,8 +109,10 @@ int create_socket()
 	{
 		error("Failed creating socket");
 	}
+
 	/* Prevent the Address aldready in use message when the socket still hangs around in the kernel after server shutting down */
 	int the_integer_called_one = 1;
+
 	if (setsockopt(server_socket_fd, SOL_SOCKET, SO_REUSEADDR, &the_integer_called_one, sizeof(the_integer_called_one)) < 0)
 	{
 		error("Failed to prevent \"Address aldready in use\" message");
@@ -110,55 +129,49 @@ void find_and_bind()
 	memset(&server, 0, sizeof(server));
 	memset(&server_second, 0, sizeof(server_second));
 	memset(&server_third, 0, sizeof(server_third));
+
 	/* Set address information */
 	server.sin_family = AF_INET;
 	server_second.sin_family = AF_INET;
 	server_third.sin_family = AF_INET;
+
 	// Use INADDR_ANY to bind to the local IP address
 	server.sin_addr.s_addr = INADDR_ANY;
 	server_second.sin_addr.s_addr = INADDR_ANY;
 	server_third.sin_addr.s_addr = INADDR_ANY;
 
 	/* Associate sockets with server IP and PORTS */
-	while (!found)
-	{
-		for (first_port = MIN_PORT; first_port < MAX_PORT; ++first_port)
-		{
-			second_port = first_port + 1;
-			third_port = first_port + 2;
-			// htons (host to network short) used to convert the port from host byte order to network byte order
-			server.sin_port = htons(first_port);
-			server_second.sin_port = htons(second_port);
-			server_third.sin_port = htons(third_port);
 
-			if (bind(server_socket_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
-			{
-				continue;
-			}
-			else
-			{
-				if (bind(server_socket_fd_second, (struct sockaddr *)&server_second, sizeof(server_second)) < 0)
-				{
-					continue;
-				}
-				else
-				{
-					if (bind(server_socket_fd_third, (struct sockaddr *)&server_third, sizeof(server_third)) < 0)
-					{
-						continue;
-					}
-					else
-					{
-						found = true;
-					}
-				}
-			}
-		}
-		if (!found)
+	for (int i = MIN_PORT; i < MAX_PORT; i++)
+	{
+		first_port = i;
+		second_port = i + 1;
+		third_port = i + 2;
+		// htons (host to network short) used to convert the port from host byte order to network byte order
+		server.sin_port = htons(first_port);
+		server_second.sin_port = htons(second_port);
+		server_third.sin_port = htons(third_port);
+
+		if (bind(server_socket_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
 		{
-			error("Failed to bind to sockets");
+			continue;
 		}
+		if (bind(server_socket_fd_second, (struct sockaddr *)&server_second, sizeof(server_second)) < 0)
+		{
+			continue;
+		}
+		if (bind(server_socket_fd_third, (struct sockaddr *)&server_third, sizeof(server_third)) < 0)
+		{
+			continue;
+		}
+		found = true;
+		break;
 	}
+	if (!found)
+	{
+		error("Failed to bind to sockets");
+	}
+
 	printf("Server listening to incomming sockets on ports %d, %d and %d\n", first_port, second_port, third_port);
 	printf("Knocking sequence is %d %d %d\n", third_port, second_port, first_port);
 }
@@ -176,16 +189,15 @@ void listen(int socketfd)
 	}
 }
 
-void rebind_and_listen(int i)
+void rebind_and_listen(int i, int port, sockaddr_in &address)
 {
-	struct sockaddr_in temp;
-	memset(&temp, 0, sizeof(temp));
+	// struct sockaddr_in temp;
+	memset(&address, 0, sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = INADDR_ANY;
+	address.sin_port = port;
 
-	temp.sin_family = AF_INET;
-	temp.sin_addr.s_addr = INADDR_ANY;
-	temp.sin_port = htons(1025);
-
-	if (bind(i, (struct sockaddr *)&temp, sizeof(temp)) < 0)
+	if (bind(i, (struct sockaddr *)&address, sizeof(address)) < 0)
 	{
 		error("failed to rebind socket");
 	}
@@ -281,7 +293,7 @@ void send_to_all(char *body, int current_fd)
 		if (FD_ISSET(j, &active_set))
 		{
 			/* prevent the received message from the client from beeing sent to the server and himself */
-			if (j != server_socket_fd && j != current_fd)
+			if (j != server_socket_fd && j != server_socket_fd_second && j != server_socket_fd_third && j != current_fd)
 			{
 				write_bytes = write(j, buffer, length);
 				if (write_bytes < 0)
@@ -486,7 +498,10 @@ void parse_client_input(char *buffer, int fd)
 		send_to_all(body, fd);
 
 		/* clean up my shit */
-		users_by_fd.erase(fd);
+		if (users_by_fd.count(fd) == 1)
+		{
+			users_by_fd.erase(fd);
+		}
 		FD_CLR(fd, &active_set);
 		close(fd);
 	}
@@ -600,49 +615,78 @@ int main(int argc, char const *argv[])
 				/* if i is our server_socket_fd, then it means it is ready to receive an incomming connection */
 				if (i == server_socket_fd)
 				{
-					/* New connection */
-					client_length = sizeof(client);
-					int new_server_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client, &client_length);
-					if (new_server_socket_fd < 0)
+					stopper = set_timer();
+					int seconds = get_time_in_seconds(starter, stopper);
+					printf("seconds: %d\n", seconds);
+					if (seconds < MAX_CONNECT_SECONDS)
 					{
-						error("Failed to establish connection");
+						/* New connection */
+						client_length = sizeof(client);
+						int new_server_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client, &client_length);
+						if (new_server_socket_fd < 0)
+						{
+							error("Failed to establish connection");
+						}
+
+						printf("Connection established from host: %s port: %d with socket file descriptor: %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), new_server_socket_fd);
+
+						/* Welcomes user to the server */
+						welcome_client(new_server_socket_fd);
+
+						// display_command_input(new_server_socket_fd);
+						/* Add new connection to active set */
+						FD_SET(new_server_socket_fd, &active_set);
+
+						/* Set max file descriptor */
+						if (new_server_socket_fd > max_file_descriptor)
+						{
+							max_file_descriptor = new_server_socket_fd;
+						}
 					}
-
-					printf("Connection established from host: %s port: %d with socket file descriptor: %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), new_server_socket_fd);
-
-					/* Welcomes user to the server */
-					welcome_client(new_server_socket_fd);
-
-					// display_command_input(new_server_socket_fd);
-					/* Add new connection to active set */
-					FD_SET(new_server_socket_fd, &active_set);
-
-					/* Set max file descriptor */
-					if (new_server_socket_fd > max_file_descriptor)
+					else
 					{
-						max_file_descriptor = new_server_socket_fd;
+						int port = server.sin_port;
+						close(i);
+						FD_CLR(i, &active_set);
+						i = create_socket();
+						rebind_and_listen(i, port, server);
+						if (i > max_file_descriptor)
+						{
+							max_file_descriptor = i;
+						}
 					}
 				}
 				else if (i == server_socket_fd_second)
 				{
-
+					printf("second knock\n");
+					int port = server_second.sin_port;
 					close(i);
 					FD_CLR(i, &active_set);
 					i = create_socket();
-					rebind_and_listen(i);
+					rebind_and_listen(i, port, server_second);
+					if (i > max_file_descriptor)
+					{
+						max_file_descriptor = i;
+					}
 				}
 				else if (i == server_socket_fd_third)
 				{
+
+					printf("first knock\n");
+					starter = set_timer();
+					int port = server_third.sin_port;
 					close(i);
 					FD_CLR(i, &active_set);
 					i = create_socket();
-					rebind_and_listen(i);
+					rebind_and_listen(i, port, server_third);
+					if (i > max_file_descriptor)
+					{
+						max_file_descriptor = i;
+					}
 				}
-
 				/* i is some client already connected */
 				else
 				{
-
 					/* Already established connection */
 					memset(buffer, 0, MAX_BYTES);
 					read_bytes = read(i, buffer, MAX_BYTES);
