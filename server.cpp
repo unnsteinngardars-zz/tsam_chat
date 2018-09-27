@@ -13,9 +13,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdexcept>
-// #include <time.h>
+#include <time.h>
 
-typedef std::chrono::high_resolution_clock::time_point time_point;
+// typedef std::chrono::high_resolution_clock::time_point time_point;
 
 /**
  * CHAT SERVER
@@ -27,8 +27,9 @@ typedef std::chrono::high_resolution_clock::time_point time_point;
 
 /* GLOBAL VARIABLES */
 
-clock_t start, stop;
-time_point starter, stopper;
+time_t start, stop;
+
+// time_point starter, stopper;
 
 int MIN_PORT = 1024;
 int MAX_PORT = 65532;
@@ -79,15 +80,15 @@ void error(const char *message)
 	exit(EXIT_FAILURE);
 }
 
-time_point set_timer()
-{
-	return std::chrono::high_resolution_clock::now();
-}
+// time_point set_timer()
+// {
+// 	return std::chrono::high_resolution_clock::now();
+// }
 
-int get_time_in_seconds(time_point start, time_point end)
-{
-	return (int)std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-}
+// int get_time_in_seconds(time_point start, time_point end)
+// {
+// 	return (int)std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+// }
 
 /**
  * Create and Bind the socket
@@ -615,12 +616,12 @@ int main(int argc, char const *argv[])
 				/* if i is our server_socket_fd, then it means it is ready to receive an incomming connection */
 				if (i == server_socket_fd)
 				{
-					stopper = set_timer();
-					int seconds = get_time_in_seconds(starter, stopper);
-					printf("seconds: %d\n", seconds);
-					if (seconds < MAX_CONNECT_SECONDS)
+					time(&stop);
+					int knock_time = difftime(stop, start);
+					printf("time: %d\n", knock_time);
+					/* New connection */
+					if (knock_time < MAX_CONNECT_SECONDS)
 					{
-						/* New connection */
 						client_length = sizeof(client);
 						int new_server_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client, &client_length);
 						if (new_server_socket_fd < 0)
@@ -673,7 +674,7 @@ int main(int argc, char const *argv[])
 				{
 
 					printf("first knock\n");
-					starter = set_timer();
+					time(&start);
 					int port = server_third.sin_port;
 					close(i);
 					FD_CLR(i, &active_set);
