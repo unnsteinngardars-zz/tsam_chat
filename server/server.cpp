@@ -119,6 +119,7 @@ BufferContent Server::parse_buffer(char * buffer, int fd)
 	return content_buffer;
 }
 
+
 void Server::display_commands(int fd)
 {
 	// TODO:: ADD ID commands!
@@ -133,6 +134,19 @@ void Server::display_commands(int fd)
 	help_message += "HELP\t\t\tSe available commands\n\n";
 	write(fd, help_message.c_str(), help_message.length());
 }
+
+void Server::display_users(BufferContent& content_buffer)
+{
+	int fd = content_buffer.get_file_descriptor();
+	std::string users = "\nLIST OF USERS:\n";
+	std::set<std::string>::iterator it;
+	for (it = usernames_set.begin(); it != usernames_set.end(); ++it){
+		std::string username = *it;
+		users += " " + username + "\n";
+	}
+	socket_utilities::write_to_client(fd, users);
+}
+
 
 bool Server::add_user(BufferContent& buffer_content, std::string& feedback_message)
 {
@@ -177,20 +191,13 @@ void Server::send_to_all(BufferContent& buffer_content)
 	}
 }
 
-
-
-void Server::display_users(BufferContent& content_buffer)
+void Server::send_to_user(int rec_fd, BufferContent& content_buffer)
 {
-	int fd = content_buffer.get_file_descriptor();
-	std::string users = "\nLIST OF USERS:\n";
-	std::set<std::string>::iterator it;
-	for (it = usernames_set.begin(); it != usernames_set.end(); ++it){
-		std::string username = *it;
-		users += " " + username + "\n";
+	std::string body = content_buffer.get_body();
+	if (FD_ISSET(rec_fd, &active_set)){
+		int write_bytes = socket_utilities::write_to_client(rec_fd, body);
 	}
-	socket_utilities::write_to_client(fd, users);
 }
-
 
 void Server::remove_from_set(std::string username)
 {
@@ -214,12 +221,19 @@ bool Server::user_exists(int fd)
 	return false;
 }
 
-void Server::send_to_user(int rec_fd, BufferContent& content_buffer)
+int Server::get_fd_by_user(std::string username)
 {
-	std::string body = content_buffer.get_body();
-	if (FD_ISSET(rec_fd, &active_set)){
-		int write_bytes = socket_utilities::write_to_client(rec_fd, body);
+	int fd = -1;
+	std::map<int, std::string>::iterator it;
+	for (it = usernames.begin(); it != usernames.end(); ++it)
+	{
+		std::string user = it->second;
+		if (!user.compare(username))
+		{		
+			fd = it->first;
+		}
 	}
+	return fd;
 }
 
 void Server::execute_command(BufferContent& content_buffer)
@@ -338,20 +352,7 @@ void Server::execute_command(BufferContent& content_buffer)
 
 }
 
-int Server::get_fd_by_user(std::string username)
-{
-	int fd = -1;
-	std::map<int, std::string>::iterator it;
-	for (it = usernames.begin(); it != usernames.end(); ++it)
-	{
-		std::string user = it->second;
-		if (!user.compare(username))
-		{		
-			fd = it->first;
-		}
-	}
-	return fd;
-}
+
 
 int Server::run()
 {
