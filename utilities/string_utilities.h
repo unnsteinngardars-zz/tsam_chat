@@ -11,6 +11,7 @@ namespace string_utilities
 {
 	void trim_cstr(char* cstr);
 	inline std::string trim_string(const std::string &s, const std::string &delimiters = " \f\n\r\t\v");
+	int verify_sub_command(char * command);
 }
 
 #endif

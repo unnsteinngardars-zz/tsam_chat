@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <string>
 
 
 #include <vector>
@@ -31,6 +32,7 @@ namespace socket_utilities
 	
 	void close_socket(int fd);
 
+	int write_to_client(int fd, std::string message);
 } // namespace socket_util
 
 #endif

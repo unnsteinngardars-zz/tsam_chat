@@ -1,5 +1,4 @@
-#include "commands.h"
-#include "server2.h"
+#include "server.h"
 
 int main(int argc, char const *argv[])
 {

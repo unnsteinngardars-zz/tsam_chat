@@ -1,19 +1,20 @@
-#ifndef SERVER2_H
-#define SERVER2_H
+#ifndef SERVER_H
+#define SERVER_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
 #include <map>
 #include <string>
+#include <set>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
 
-#include "socket_utilities.h"
-#include "string_utilities.h"
+#include "../utilities/string_utilities.h"
+#include "../utilities/socket_utilities.h"
 #include "buffer_content.h"
 
 typedef std::vector<std::pair<int, struct sockaddr_in> > Servers;
@@ -24,11 +25,21 @@ class Server
 {
 	private:
 	Servers servers;
+	std::map<int, std::string> usernames;
+	std::set<std::string> usernames_set;
 	// std::map<int, int> port_knocks;
 	time_t knock_start, knock_stop;
 	int MAX_BUFFER_SIZE;
 	fd_set active_set, read_set; // might want to add write_set
 	int max_file_descriptor;
+	void display_commands(int fd);
+	bool add_user(BufferContent& buffer_content, std::string& feedback_message);
+	void send_to_all(BufferContent& buffer_content);
+	void display_users(BufferContent& content_buffer);
+	bool user_exists(int fd);
+	int get_fd_by_user(std::string username);
+	void send_to_user(int rec_fd, BufferContent& content_buffer);
+	void remove_from_set(std::string username);
 
   public:
 	Server();
@@ -44,6 +55,7 @@ class Server
 	void update_max_fd(int fd);
 	int accept_connection(int socket, sockaddr_in& address, socklen_t & length);
 	BufferContent parse_buffer(char * buffer, int fd);
+	void execute_command(BufferContent& buffer_content);
 };
 
 #endif

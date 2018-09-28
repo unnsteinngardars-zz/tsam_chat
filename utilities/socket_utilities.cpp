@@ -100,3 +100,13 @@ void socket_utilities::rebind_and_listen(int fd, sockaddr_in &address, int port)
 void socket_utilities::close_socket(int fd){
 	close(fd);
 }
+
+int socket_utilities::write_to_client(int fd, std::string message)
+{
+	int write_bytes = write(fd, message.c_str(), message.size());
+	if (write_bytes < 0)
+	{
+		error("Sending to clients");
+	}
+	return write_bytes;
+}

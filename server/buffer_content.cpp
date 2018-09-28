@@ -1,6 +1,11 @@
 #include "buffer_content.h"
 
-BufferContent::BufferContent(){};
+BufferContent::BufferContent()
+{
+	command = "";
+	sub_command = "";
+	body = "";
+};
 
 void BufferContent::set_command(std::string c)
 {
@@ -31,3 +36,24 @@ std::string BufferContent::get_sub_command()
 {
 	return sub_command;
 }
+
+void BufferContent::set_file_descriptor(int fd)
+{
+	socket = fd;
+}
+
+int BufferContent::get_file_descriptor()
+{
+	return socket;
+}
+
+void BufferContent::set_sending_user(std::string su)
+{
+	sending_user = su;
+}
+
+std::string BufferContent::get_sending_user()
+{
+	return sending_user;
+}
+
