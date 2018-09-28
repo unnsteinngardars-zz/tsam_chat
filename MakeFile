@@ -1,11 +1,8 @@
-CC = gcc
-CXX = g++
-CXXFLAGS = -g -Wall --std=c++11
+CC =gcc
+CXX =g++
+CXXFLAGS =-g -Wall --std=c++11
 
-SERVER = _server.cpp
+EXECUTE = entry.cpp server2.cpp socket_utilities.cpp string_utilities.cpp buffer_content.cpp
 
-server: $(SERVER)
-	$(CXX) $(CXXFLAGS) -o server $(SERVER)
-
-test: _server.cpp
-	$(CXX) $(CXXFLAGS) -o _server _server.cpp
+execute: $(EXECUTE)
+	$(CXX) $(GXXFLAGS) -o server2 $(EXECUTE)

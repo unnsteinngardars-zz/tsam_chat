@@ -333,7 +333,7 @@ void send_to_user(char *body, int current_fd, int recv_fd)
 	}
 	else
 	{
-		std::string no_username = "You must use register with a username before sending private messages\n";
+		std::string no_username = "You must CONNECT with a username before sending private messages\n";
 		write(current_fd, no_username.c_str(), no_username.length());
 	}
 }
@@ -676,6 +676,7 @@ int main(int argc, char const *argv[])
 					printf("first knock\n");
 					time(&start);
 					int port = server_third.sin_port;
+					printf("port: %d\n",ntohs(port));
 					close(i);
 					FD_CLR(i, &active_set);
 					i = create_socket();
