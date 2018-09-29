@@ -16,6 +16,9 @@
 typedef std::vector<std::pair<int, struct sockaddr_in> > Servers;
 typedef std::pair<int, struct sockaddr_in> Pair;
 
+/**
+ * Utilities for socket functionality
+*/
 namespace socket_utilities
 {
 
@@ -28,12 +31,10 @@ namespace socket_utilities
 	int find_consecutive_ports(int min_port, int max_port, Servers &servers);
 
 	void listen_on_socket(int fd);
-
-	void rebind_and_listen(int fd, sockaddr_in &address, int port);
 	
 	void close_socket(int fd);
 
 	int write_to_client(int fd, std::string message);
-} // namespace socket_util
+} 
 
 #endif

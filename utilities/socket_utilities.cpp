@@ -77,25 +77,6 @@ void socket_utilities::listen_on_socket(int fd)
 	}
 }
 
-void socket_utilities::rebind_and_listen(int fd, sockaddr_in &address, int port)
-{
-
-	memset(&address, 0, sizeof(address));
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = INADDR_ANY;
-	// port is already in network byte order
-	address.sin_port = port;
-	
-	if (bind(fd, (struct sockaddr *)&address, sizeof(address)) < 0)
-	{
-		error("failed to rebind socket");
-	}
-
-	if (listen(fd, 10) < 0)
-	{
-		error("Failed to listen");
-	}
-}
 
 void socket_utilities::close_socket(int fd){
 	close(fd);
@@ -103,7 +84,7 @@ void socket_utilities::close_socket(int fd){
 
 int socket_utilities::write_to_client(int fd, std::string message)
 {
-	int write_bytes = write(fd, message.c_str(), message.size());
+	int write_bytes = send(fd, message.c_str(), message.size(), 0);
 	if (write_bytes < 0)
 	{
 		error("Sending to clients");

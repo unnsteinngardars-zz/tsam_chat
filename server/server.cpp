@@ -111,19 +111,6 @@ void Server::listen_to_sockets()
 	}
 }
 
-/**
- * Rebind a pair of fd/sockaddr_in to its port
-*/
-void Server::rebind(Pair& pair)
-{
-	int test = ntohs(pair.second.sin_port);
-	int port = pair.second.sin_port;
-	socket_utilities::close_socket(pair.first);
-	FD_CLR(pair.first, &active_set);
-	pair.first = socket_utilities::create_socket();
-	socket_utilities::rebind_and_listen(pair.first, pair.second, port);
-	FD_SET(pair.first, &active_set);
-}
 
 /**
  * Update the maximum file descriptor variable
@@ -299,13 +286,13 @@ void Server::execute_command(BufferContent& buffer_content)
 
 	if ((!command.compare("ID"))) 
 	{
-		printf("display server id\n");
-
+		printf("client requesting ID\n");
 		socket_utilities::write_to_client(fd, id + "\n");
 	}
 
 	else if ((!command.compare("CONNECT"))) 
 	{	
+		std::cout << buffer_content.get_sub_command() + buffer_content.get_body() + " connecting with username" << std::endl;
 		if (add_user(buffer_content, feedback_message)){
 			// write to all
 			buffer_content.set_body(feedback_message);
@@ -318,9 +305,9 @@ void Server::execute_command(BufferContent& buffer_content)
 	}
 	else if ((!command.compare("LEAVE"))) 
 	{
-		
 		if (user_exists(fd)){
 			std::string username = usernames.at(fd);
+			std::cout << username <<  " has left" << std::endl;
 			buffer_content.set_body(username + " has left the chat\n");
 			send_to_all(buffer_content);
 			usernames.erase(fd);
@@ -480,11 +467,14 @@ int Server::run()
 	listen_to_sockets();
 	add_to_active_set();
 
+	bool knocked = false;
+
 	int first_port = ntohs(servers.at(0).second.sin_port);
 	int second_port = ntohs(servers.at(1).second.sin_port);
 	int third_port = ntohs(servers.at(2).second.sin_port);
 	printf("ports %d %d %d\n", first_port, second_port, third_port);
 	max_file_descriptor = servers.at(servers.size() - 1).first;
+
 	while (1)
 	{
 		/* copy active_set to read_set to not loose information about active_set status since select alters the set passed as argument */
@@ -502,25 +492,26 @@ int Server::run()
 				/* if i is the first open port */
 				if (i == servers.at(0).first)
 				{
-					printf("first knock\n");
 					set_timer();
-					rebind(servers.at(0));
-					update_max_fd(i);
+					struct sockaddr_in client;
+					socklen_t client_length;
+					int client_fd = accept_connection(i, client, client_length);
+					close(client_fd);
 				}
 				/* if i is the second open port */
 				else if (i == servers.at(1).first)
 				{
-					printf("second knock\n");
-					rebind(servers.at(1));
-					update_max_fd(i);
+					knocked = true;
+					struct sockaddr_in client;
+					socklen_t client_length;
+					int client_fd = accept_connection(i, client, client_length);
+					close(client_fd);
 				}
 				/* if i is the third open port */
 				else if (i == servers.at(2).first)
 				{
-					printf("third knock\n");
 					stop_timer();
-					if (get_time_in_seconds() < 4) {
-						printf("Welcome bitch!\n");
+					if (get_time_in_seconds() < 4 && knocked) {
 						client_length = sizeof(client);
 						int client_fd = accept_connection(i, client, client_length);
 						printf("Connection established from %s port %d and fd %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), client_fd);
@@ -531,16 +522,18 @@ int Server::run()
 
 					}
 					else {
-						printf("to late!\n");
-						rebind(servers.at(2));
-						update_max_fd(i);
+						struct sockaddr_in client;
+						socklen_t client_length;
+						int client_fd = accept_connection(i, client, client_length);
+						close(client_fd);
+						knocked = false;
 					}
 
 				}
 				/* i is some already connected client that has send a message */
 				else {
 					memset(buffer, 0, MAX_BUFFER_SIZE);
-					int read_bytes = read(i, buffer, MAX_BUFFER_SIZE);
+					int read_bytes = recv(i, buffer, MAX_BUFFER_SIZE, 0);
 					if (read_bytes < 0){
 						if (errno != EWOULDBLOCK || errno != EAGAIN)
 						{

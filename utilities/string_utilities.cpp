@@ -21,15 +21,6 @@ void string_utilities::trim_cstr(char * cstr)
 	return;
 }
 
-// DELETE 
-int string_utilities::verify_sub_command(char * command)
-{
-	if((strcmp(command, "ID") == 0) || (strcmp(command,"ALL") == 0 )){
-		return 1;
-	}
-	return -1;
-}
-
 std::vector<std::string> string_utilities::split_by_delimeter(std::string string_buffer, std::string delimeter)
 {
 	/* convert to string */
