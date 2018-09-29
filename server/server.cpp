@@ -483,7 +483,8 @@ int Server::run()
 	listen_to_sockets();
 	add_to_active_set();
 
-	bool knocked = false;
+	bool knocked_first = false;
+	bool knocked_second = false;
 
 	int first_port = ntohs(servers.at(0).second.sin_port);
 	int second_port = ntohs(servers.at(1).second.sin_port);
@@ -508,7 +509,11 @@ int Server::run()
 				/* if i is the first open port */
 				if (i == servers.at(0).first)
 				{
-					set_timer();
+					if (!knocked_second)
+					{
+						set_timer();
+						knocked_first = true;
+					}
 					struct sockaddr_in client;
 					socklen_t client_length;
 					int client_fd = accept_connection(i, client, client_length);
@@ -517,7 +522,10 @@ int Server::run()
 				/* if i is the second open port */
 				else if (i == servers.at(1).first)
 				{
-					knocked = true;
+					if(knocked_first)
+					{
+						knocked_second = true;
+					}
 					struct sockaddr_in client;
 					socklen_t client_length;
 					int client_fd = accept_connection(i, client, client_length);
@@ -527,7 +535,8 @@ int Server::run()
 				else if (i == servers.at(2).first)
 				{
 					stop_timer();
-					if (get_time_in_seconds() < 4 && knocked) {
+					int seconds = get_time_in_seconds();
+					if (seconds < 4 && knocked_first && knocked_second) {
 						client_length = sizeof(client);
 						int client_fd = accept_connection(i, client, client_length);
 						printf("Connection established from %s port %d and fd %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), client_fd);
@@ -535,6 +544,10 @@ int Server::run()
 						write_to_client(client_fd, welcome_message);
 						FD_SET(client_fd, &active_set);
 						update_max_fd(client_fd);
+						knocked_first = false;
+						knocked_second = false;
+						// knock_start = NULL;
+						// knock_stop = NULL;
 
 					}
 					else {
@@ -542,7 +555,10 @@ int Server::run()
 						socklen_t client_length;
 						int client_fd = accept_connection(i, client, client_length);
 						close(client_fd);
-						knocked = false;
+						knocked_first = false;
+						knocked_second = false;
+						// knock_start = NULL;
+						// knock_stop = NULL;
 					}
 
 				}
