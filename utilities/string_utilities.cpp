@@ -29,3 +29,37 @@ int string_utilities::verify_sub_command(char * command)
 	}
 	return -1;
 }
+
+std::vector<std::string> string_utilities::split_by_delimeter(std::string string_buffer, std::string delimeter)
+{
+	/* convert to string */
+	trim_string(string_buffer);
+	size_t pos = 0;
+	
+	std::string str;
+	std::vector<std::string> vec;
+
+	while((pos = string_buffer.find(delimeter)) != std::string::npos)
+	{
+		str = string_buffer.substr(0, pos);
+		vec.push_back(str);
+		string_buffer.erase(0, pos + delimeter.length());
+	}
+	vec.push_back(string_buffer);
+	return vec;
+}
+
+std::string string_utilities::split_into_commands_and_body(std::string input_string)
+{
+	trim_string(input_string);
+	size_t pos = 0;
+	int counter = 0;
+	std::string str;
+	std::vector<std::string> vec;
+	
+	while ((pos = input_string.find(" ")) != std::string::npos)
+	{
+
+	}
+	return "";
+}

@@ -346,6 +346,7 @@ void Server::execute_command(BufferContent& buffer_content)
 }
 
 
+
 /*
 	CONNECT username/ID/CHANGE ID/LEAVE
 */
@@ -355,12 +356,22 @@ BufferContent Server::parse_buffer(char * buffer, int fd)
 	BufferContent buffer_content;
 	buffer_content.set_file_descriptor(fd);
 
+	/* Memcopy the buffer onto a local buffer */
 	int buffer_length = strlen(buffer);
 	char local_buffer[buffer_length];
 	memset(local_buffer, 0, buffer_length);
 	memcpy(local_buffer, buffer, buffer_length + 1);
+	std::string delimeter = "/";
+	std::vector<std::string> vector_buffer = string_utilities::split_by_delimeter(std::string(local_buffer), delimeter);
+	
+	for (int i = 0; i < vector_buffer.size(); ++i)
+	{
+		BufferContent buffer_content;
+		buffer_content.set_file_descriptor(fd);
 
+		std::cout << vector_buffer.at(i) << " ";
 
+	}
 	// printf("buffer_length: %d\n", strlen(local_buffer));
 
 	char * first = strtok(local_buffer, " ");
@@ -479,7 +490,10 @@ int Server::run()
 					memset(buffer, 0, MAX_BUFFER_SIZE);
 					int read_bytes = read(i, buffer, MAX_BUFFER_SIZE);
 					if (read_bytes < 0){
-						socket_utilities::error("Error reading from client");
+						if (errno != EWOULDBLOCK || errno != EAGAIN)
+						{
+							socket_utilities::error("Error reading from client");
+						}
 					}
 					else if (read_bytes == 0){
 						BufferContent buffer_content;

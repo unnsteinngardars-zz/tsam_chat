@@ -1,6 +1,8 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <iostream>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -12,6 +14,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include "../utilities/string_utilities.h"
 #include "../utilities/socket_utilities.h"
