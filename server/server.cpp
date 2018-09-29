@@ -22,7 +22,7 @@ void Server::set_fortune()
 	pclose(fp);
 	if (fort.compare(""))
 	{
-		fort += "_GROUP_INITIALS_" + time_utilities::get_time_stamp();
+		fort += "_Y_Project_2_22_" + time_utilities::get_time_stamp();
 		id = fort;
 	}
 	else{
