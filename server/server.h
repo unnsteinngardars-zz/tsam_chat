@@ -46,7 +46,7 @@ class Server
 	bool user_exists(int fd);
 	int get_fd_by_user(std::string username);
 	void send_to_user(int rec_fd, BufferContent& buffer_content);
-	int write_to_client(int fd, std::string message);
+	void write_to_client(int fd, std::string message);
 	void remove_from_set(std::string username);
 	void set_fortune();
 	std::string get_fortune();

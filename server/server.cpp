@@ -211,7 +211,7 @@ void Server::send_to_all(BufferContent& buffer_content)
 			/* prevent the received message from the client from beeing sent to the server and himself */
 			if (i != servers.at(0).first && i != servers.at(1).first && i != servers.at(2).first && i != fd)
 			{
-				int write_bytes = write_to_client(i, body);
+				write_to_client(i, body);
 			}
 		}
 	}
@@ -224,7 +224,7 @@ void Server::send_to_user(int rec_fd, BufferContent& buffer_content)
 {
 	std::string body = buffer_content.get_body();
 	if (FD_ISSET(rec_fd, &active_set)){
-		int write_bytes = write_to_client(rec_fd, body);
+		write_to_client(rec_fd, body);
 	}
 }
 
@@ -274,7 +274,7 @@ int Server::get_fd_by_user(std::string username)
 	return fd;
 }
 
-int Server::write_to_client(int fd, std::string message)
+void Server::write_to_client(int fd, std::string message)
 {
 	if (socket_utilities::write_to_client(fd, message) < 0)
 	{
@@ -285,7 +285,7 @@ int Server::write_to_client(int fd, std::string message)
 		}
 		else if (errno == EBADF)
 		{
-			printf("Bad file descriptor error for fd: %d\n");
+			printf("Bad file descriptor error for fd: %d\n", fd);
 		}
 	}
 }
