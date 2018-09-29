@@ -85,9 +85,5 @@ void socket_utilities::close_socket(int fd){
 int socket_utilities::write_to_client(int fd, std::string message)
 {
 	int write_bytes = send(fd, message.c_str(), message.size(), 0);
-	if (write_bytes < 0)
-	{
-		error("Sending to clients");
-	}
 	return write_bytes;
 }

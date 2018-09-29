@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <string>
 #include <string.h>
-
+#include <errno.h>
 
 #include <vector>
 

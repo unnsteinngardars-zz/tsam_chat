@@ -165,7 +165,7 @@ void Server::display_users(BufferContent& buffer_content)
 		std::string username = *it;
 		users += " " + username + "\n";
 	}
-	socket_utilities::write_to_client(fd, users);
+	write_to_client(fd, users);
 }
 
 /**
@@ -211,7 +211,7 @@ void Server::send_to_all(BufferContent& buffer_content)
 			/* prevent the received message from the client from beeing sent to the server and himself */
 			if (i != servers.at(0).first && i != servers.at(1).first && i != servers.at(2).first && i != fd)
 			{
-				int write_bytes = socket_utilities::write_to_client(i, body);
+				int write_bytes = write_to_client(i, body);
 			}
 		}
 	}
@@ -224,7 +224,7 @@ void Server::send_to_user(int rec_fd, BufferContent& buffer_content)
 {
 	std::string body = buffer_content.get_body();
 	if (FD_ISSET(rec_fd, &active_set)){
-		int write_bytes = socket_utilities::write_to_client(rec_fd, body);
+		int write_bytes = write_to_client(rec_fd, body);
 	}
 }
 
@@ -274,6 +274,18 @@ int Server::get_fd_by_user(std::string username)
 	return fd;
 }
 
+int Server::write_to_client(int fd, std::string message)
+{
+	if (socket_utilities::write_to_client(fd, message) < 0)
+	{
+		if (!(errno == EWOULDBLOCK || errno == EAGAIN))
+		{
+			close(fd);
+			FD_CLR(fd, &active_set);
+		}
+	}
+}
+
 /**
  * Execute a command
 */
@@ -287,7 +299,7 @@ void Server::execute_command(BufferContent& buffer_content)
 	if ((!command.compare("ID"))) 
 	{
 		printf("client requesting ID\n");
-		socket_utilities::write_to_client(fd, id + "\n");
+		write_to_client(fd, id + "\n");
 	}
 
 	else if ((!command.compare("CONNECT"))) 
@@ -352,7 +364,7 @@ void Server::execute_command(BufferContent& buffer_content)
 					else
 					{
 						feedback_message = "Cannot send message to yourself\n";
-						socket_utilities::write_to_client(fd, feedback_message);
+						write_to_client(fd, feedback_message);
 						// write(fd,feedback_message.c_str(), feedback_message.length());
 					}
 				}
@@ -361,7 +373,7 @@ void Server::execute_command(BufferContent& buffer_content)
 				{	
 					printf("no user found\n");
 					feedback_message = "No such user\n";
-					socket_utilities::write_to_client(fd, feedback_message);
+					write_to_client(fd, feedback_message);
 					// write(fd, feedback_message.c_str(), feedback_message.length());
 				}
 			}
@@ -391,7 +403,7 @@ void Server::execute_command(BufferContent& buffer_content)
 	else
 	{
 		feedback_message = "Unknown command, type HELP for commands\n";
-		socket_utilities::write_to_client(fd, feedback_message);
+		write_to_client(fd, feedback_message);
 	}
 
 }
@@ -516,7 +528,7 @@ int Server::run()
 						int client_fd = accept_connection(i, client, client_length);
 						printf("Connection established from %s port %d and fd %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), client_fd);
 						std::string welcome_message = "Welcome, type HELP for available commands\n";
-						socket_utilities::write_to_client(client_fd, welcome_message);
+						write_to_client(client_fd, welcome_message);
 						FD_SET(client_fd, &active_set);
 						update_max_fd(client_fd);
 
