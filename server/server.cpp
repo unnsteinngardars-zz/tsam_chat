@@ -12,7 +12,7 @@ void Server::set_fortune()
 	FILE* fp;
 	char path[1035];
 	std::string fort = "";
-	fp = popen("/bin/fortune", "r");
+	fp = popen("/bin/fortune -s", "r");
 	if (fp == NULL){
 		printf("No command f");
 	}
