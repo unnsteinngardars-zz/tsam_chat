@@ -15,6 +15,7 @@
 
 #include "../utilities/string_utilities.h"
 #include "../utilities/socket_utilities.h"
+#include "../utilities/time_utilities.h"
 #include "buffer_content.h"
 
 typedef std::vector<std::pair<int, struct sockaddr_in> > Servers;
@@ -32,6 +33,8 @@ class Server
 	int MAX_BUFFER_SIZE;
 	fd_set active_set, read_set; // might want to add write_set
 	int max_file_descriptor;
+	std::string id;
+
 	void display_commands(int fd);
 	bool add_user(BufferContent& buffer_content, std::string& feedback_message);
 	void send_to_all(BufferContent& buffer_content);
@@ -40,6 +43,8 @@ class Server
 	int get_fd_by_user(std::string username);
 	void send_to_user(int rec_fd, BufferContent& content_buffer);
 	void remove_from_set(std::string username);
+	void set_fortune();
+	std::string get_fortune();
 
   public:
 	Server();

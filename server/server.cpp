@@ -3,6 +3,35 @@
 Server::Server()
 {
 	FD_ZERO(&active_set);
+	set_fortune();
+}
+
+
+void Server::set_fortune()
+{
+	FILE* fp;
+	char path[1035];
+	std::string fort = "";
+	fp = popen("/bin/fortune -s", "r");
+	if (fp == NULL){
+		printf("No command f");
+	}
+	while (fgets(path, sizeof(path) - 1, fp) != NULL){
+		fort += std::string(path);
+	}
+	pclose(fp);
+	if (fort.compare(""))
+	{
+		fort += "_GROUP_INITIALS_" + time_utilities::get_time_stamp();
+		id = fort;
+	}
+	id = "NO_ID";
+	printf("fortune: %s\n", id.c_str());
+}
+
+std::string Server::get_fortune()
+{
+	return id;
 }
 
 void Server::set_timer()
@@ -246,6 +275,8 @@ void Server::execute_command(BufferContent& content_buffer)
 	if ((!command.compare("ID"))) 
 	{
 		printf("display server id\n");
+
+		socket_utilities::write_to_client(fd, id);
 	}
 
 	else if ((!command.compare("CONNECT"))) 

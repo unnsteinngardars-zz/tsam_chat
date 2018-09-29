@@ -6,5 +6,5 @@ CXXFLAGS =-g -Wall --std=c++11
 SERVER = $(wildcard ./server/*.cpp)
 UTILITIES = $(wildcard ./utilities/*.cpp)
 
-server: $(SERVER) $(UTILITIES)
+server: $(SERVER) $(UTILITIES) 
 	$(CXX) $(GXXFLAGS) -o chat_server $(SERVER) $(UTILITIES)
