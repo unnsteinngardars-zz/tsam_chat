@@ -1,12 +1,17 @@
 #include "server.h"
 
+/**
+ * Initialize a Server with fortune
+*/
 Server::Server()
 {
-	FD_ZERO(&active_set);
 	set_fortune();
 }
 
 
+/**
+ * Set the fortune
+*/
 void Server::set_fortune()
 {
 	FILE* fp;
@@ -31,31 +36,49 @@ void Server::set_fortune()
 	printf("fortune: %s\n", id.c_str());
 }
 
+/**
+ * Get the fortune
+*/
 std::string Server::get_fortune()
 {
 	return id;
 }
 
+/**
+ * Start the knock timer
+*/
 void Server::set_timer()
 {
 	time(&knock_start);
 }
 
+/**
+ * End the knock timer
+*/
 void Server::stop_timer()
 {
 	time(&knock_stop);
 }
 
+/**
+ * Get knock time elapsed in seconds
+*/
 int Server::get_time_in_seconds()
 {
 	return difftime(knock_stop, knock_start);
 }
 
+/**
+ * Set the max buffer size
+*/
 void Server::set_max_buffer(int size)
 {
 	MAX_BUFFER_SIZE = size;
 }
 
+/**
+ * Create server sockets
+*/
 void Server::create_sockets()
 {
 	for (int i = 0; i < 3; ++i)
@@ -66,6 +89,9 @@ void Server::create_sockets()
 	}
 }
 
+/**
+ * Add server sockets to active set
+*/
 void Server::add_to_active_set()
 {
 	for (int i = 0; i < servers.size(); ++i)
@@ -74,6 +100,9 @@ void Server::add_to_active_set()
 	}
 }
 
+/**
+ * Listen to server sockets
+*/
 void Server::listen_to_sockets()
 {
 	for (int i = 0; i < servers.size(); ++i)
@@ -82,6 +111,9 @@ void Server::listen_to_sockets()
 	}
 }
 
+/**
+ * Rebind a pair of fd/sockaddr_in to its port
+*/
 void Server::rebind(Pair& pair)
 {
 	int test = ntohs(pair.second.sin_port);
@@ -93,6 +125,9 @@ void Server::rebind(Pair& pair)
 	FD_SET(pair.first, &active_set);
 }
 
+/**
+ * Update the maximum file descriptor variable
+*/
 void Server::update_max_fd(int fd)
 {
 	if (fd > max_file_descriptor) {
@@ -100,6 +135,9 @@ void Server::update_max_fd(int fd)
 	}
 }
 
+/**
+ * Accept a connection
+*/
 int Server::accept_connection(int socket, sockaddr_in& address, socklen_t & length)
 {
 	int new_socket = accept(socket, (struct sockaddr *)&address, &length);
@@ -110,7 +148,9 @@ int Server::accept_connection(int socket, sockaddr_in& address, socklen_t & leng
 }
 
 
-
+/**
+ * Display all commands
+*/
 void Server::display_commands(int fd)
 {
 	// TODO:: ADD ID commands!
@@ -126,6 +166,9 @@ void Server::display_commands(int fd)
 	write(fd, help_message.c_str(), help_message.length());
 }
 
+/**
+ * Display all users
+*/
 void Server::display_users(BufferContent& buffer_content)
 {
 	int fd = buffer_content.get_file_descriptor();
@@ -138,6 +181,9 @@ void Server::display_users(BufferContent& buffer_content)
 	socket_utilities::write_to_client(fd, users);
 }
 
+/**
+ * Add a newly connected user
+*/
 bool Server::add_user(BufferContent& buffer_content, std::string& feedback_message)
 {
 	std::string username = buffer_content.get_sub_command() + buffer_content.get_body();
@@ -163,6 +209,9 @@ bool Server::add_user(BufferContent& buffer_content, std::string& feedback_messa
 	return true;
 }
 
+/**
+ * Broadcast to all clients
+*/
 void Server::send_to_all(BufferContent& buffer_content)
 {	
 	int fd = buffer_content.get_file_descriptor();
@@ -181,6 +230,9 @@ void Server::send_to_all(BufferContent& buffer_content)
 	}
 }
 
+/**
+ * Send a message to a single client
+*/
 void Server::send_to_user(int rec_fd, BufferContent& buffer_content)
 {
 	std::string body = buffer_content.get_body();
@@ -189,6 +241,9 @@ void Server::send_to_user(int rec_fd, BufferContent& buffer_content)
 	}
 }
 
+/**
+ * Remove a user from the set of usernames
+*/
 void Server::remove_from_set(std::string username)
 {
 	std::set<std::string>::iterator it;
@@ -202,6 +257,9 @@ void Server::remove_from_set(std::string username)
 	}
 }
 
+/**
+ * Check if a user exists
+*/
 bool Server::user_exists(int fd)
 {
 	if (usernames.count(fd) == 1) 
@@ -211,6 +269,9 @@ bool Server::user_exists(int fd)
 	return false;
 }
 
+/**
+ * Get a file descriptor by username
+*/
 int Server::get_fd_by_user(std::string username)
 {
 	int fd = -1;
@@ -226,6 +287,9 @@ int Server::get_fd_by_user(std::string username)
 	return fd;
 }
 
+/**
+ * Execute a command
+*/
 void Server::execute_command(BufferContent& buffer_content)
 {	
 	std::string command = buffer_content.get_command();
@@ -345,72 +409,60 @@ void Server::execute_command(BufferContent& buffer_content)
 
 }
 
-
-
-/*
-	CONNECT username/ID/CHANGE ID/LEAVE
+/**
+ * parse the input buffer from the client and execute each command
 */
-
-BufferContent Server::parse_buffer(char * buffer, int fd)
+void Server::parse_buffer(char * buffer, int fd)
 {
-	BufferContent buffer_content;
-	buffer_content.set_file_descriptor(fd);
-
 	/* Memcopy the buffer onto a local buffer */
 	int buffer_length = strlen(buffer);
 	char local_buffer[buffer_length];
 	memset(local_buffer, 0, buffer_length);
 	memcpy(local_buffer, buffer, buffer_length + 1);
-	std::string delimeter = "/";
+	std::string delimeter = "\\";
 	std::vector<std::string> vector_buffer = string_utilities::split_by_delimeter(std::string(local_buffer), delimeter);
 	
 	for (int i = 0; i < vector_buffer.size(); ++i)
 	{
 		BufferContent buffer_content;
 		buffer_content.set_file_descriptor(fd);
-
-		std::cout << vector_buffer.at(i) << " ";
-
+		std::vector<std::string> commands = string_utilities::split_into_commands_and_body(vector_buffer.at(i));
+		for (int j = 0; j < commands.size(); ++j)
+		{
+			std::string cmd = commands.at(j);
+			if (j == 0)
+			{
+				buffer_content.set_command(string_utilities::trim_string(cmd));
+			}
+			else if (j == 1)
+			{	
+				buffer_content.set_sub_command(string_utilities::trim_string(cmd));
+			}
+			else if (j == 2)
+			{
+				buffer_content.set_body(string_utilities::trim_string(cmd));
+			}
+		}
+		execute_command(buffer_content);
 	}
-	// printf("buffer_length: %d\n", strlen(local_buffer));
-
-	char * first = strtok(local_buffer, " ");
-	char * second = strtok(NULL, " ");
-	char * third = strtok(NULL, " ");
-	
-	/* work with first string of buffer */
-	string_utilities::trim_cstr(first);
-	std::string command = (strlen(first) > 0) ? std::string(first) : "";
-	buffer_content.set_command(command);
-	
-	/* work with second string of buffer */
-	if (second != NULL)
-	{
-		string_utilities::trim_cstr(second);
-		buffer_content.set_sub_command(std::string(second));
-	}
-
-	/* work with third string of buffer */
-	if (third != NULL){
-		string_utilities::trim_cstr(third);
-		buffer_content.set_body(std::string(third));
-	}
-
-	return buffer_content;
 }
 
 
+/**
+ * Run the server
+*/
 int Server::run()
 {
 	int MIN_PORT = 1024;
 	int MAX_PORT = 65532;
+	
+	/* zero the active set */
+	FD_ZERO(&active_set);
+
 	/* the struct for the incomming client info */
 	struct sockaddr_in client;
 
-	/* client_length is used for the accept call
-	 * http://pubs.opengroup.org/onlinepubs/009695399/functions/accept.html
-	 * Points to a socklen_t structure which on input specifies the length of the supplied sockaddr structure, and on output specifies the length of the stored address.
-	*/
+	/* client_length is used for the accept call */
 	socklen_t client_length;
 
 	/* buffer for messages */
@@ -419,7 +471,7 @@ int Server::run()
 	/* Create 3 sockets/sockaddr_in */
 	create_sockets();
 
-	/* find consecutive ports to bind to */
+	/* find 3 consecutive ports to bind to */
 	if (socket_utilities::find_consecutive_ports(MIN_PORT, MAX_PORT, servers) < 0){
 		socket_utilities::error("Failed to bind to ports");
 	}
@@ -511,17 +563,10 @@ int Server::run()
 						FD_CLR(i, &active_set);
 					}
 					else {
-						// printf("Buffer from client: %s\n", buffer);
-						// printf("buffer length: %zu\n", strlen(buffer));
-						BufferContent buffer_content = parse_buffer(buffer, i);
-						execute_command(buffer_content);
+						parse_buffer(buffer, i);
 					}
 				}
 
-			}
-			else
-			{
-				
 			}
 		}
 	}

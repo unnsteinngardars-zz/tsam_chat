@@ -63,7 +63,7 @@ class Server
 	void rebind(Pair& pair);
 	void update_max_fd(int fd);
 	int accept_connection(int socket, sockaddr_in& address, socklen_t & length);
-	BufferContent parse_buffer(char * buffer, int fd);
+	void parse_buffer(char * buffer, int fd);
 	void execute_command(BufferContent& buffer_content);
 };
 
