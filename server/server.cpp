@@ -33,7 +33,7 @@ void Server::set_fortune()
 	else{
 		id = "NO_ID";
 	}
-	printf("fortune: %s\n", id.c_str());
+	fprintf(stdout, "fortune: %s\n", id.c_str());
 }
 
 /**
