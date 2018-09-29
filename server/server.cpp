@@ -462,6 +462,8 @@ int Server::run()
 						client_length = sizeof(client);
 						int client_fd = accept_connection(i, client, client_length);
 						printf("Connection established from %s port %d and fd %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), client_fd);
+						std::string welcome_message = "Welcome, type HELP for available commands\n";
+						socket_utilities::write_to_client(client_fd, welcome_message);
 						FD_SET(client_fd, &active_set);
 						update_max_fd(client_fd);
 
