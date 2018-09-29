@@ -280,8 +280,12 @@ int Server::write_to_client(int fd, std::string message)
 	{
 		if (!(errno == EWOULDBLOCK || errno == EAGAIN))
 		{
-			close(fd);
 			FD_CLR(fd, &active_set);
+			close(fd);
+		}
+		else if (errno == EBADF)
+		{
+			printf("Bad file descriptor error for fd: %d\n");
 		}
 	}
 }
@@ -304,7 +308,7 @@ void Server::execute_command(BufferContent& buffer_content)
 
 	else if ((!command.compare("CONNECT"))) 
 	{	
-		std::cout << buffer_content.get_sub_command() + buffer_content.get_body() + " connecting with username" << std::endl;
+		std::cout << buffer_content.get_sub_command() + buffer_content.get_body() + " has connected" << std::endl;
 		if (add_user(buffer_content, feedback_message)){
 			// write to all
 			buffer_content.set_body(feedback_message);
@@ -549,8 +553,8 @@ int Server::run()
 					if (read_bytes < 0){
 						if (!(errno == EWOULDBLOCK || errno == EAGAIN))
 						{
-							close(i);
 							FD_CLR(i, &active_set);
+							close(i);
 						}
 					}
 					else if (read_bytes == 0){
@@ -560,6 +564,7 @@ int Server::run()
 						
 						if (user_exists(i)){
 							std::string username = usernames.at(i);
+							std::cout << username <<  " has left" << std::endl;
 							buffer_content.set_body(username + " has left the chat");
 							send_to_all(buffer_content);
 							usernames.erase(i);
