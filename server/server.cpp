@@ -12,7 +12,7 @@ void Server::set_fortune()
 	FILE* fp;
 	char path[1035];
 	std::string fort = "";
-	fp = popen("/bin/fortune -s", "r");
+	fp = popen("/bin/fortune", "r");
 	if (fp == NULL){
 		printf("No command f");
 	}
@@ -25,7 +25,9 @@ void Server::set_fortune()
 		fort += "_GROUP_INITIALS_" + time_utilities::get_time_stamp();
 		id = fort;
 	}
-	id = "NO_ID";
+	else{
+		id = "NO_ID";
+	}
 	printf("fortune: %s\n", id.c_str());
 }
 

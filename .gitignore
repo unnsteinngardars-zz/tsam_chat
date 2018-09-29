@@ -9,4 +9,4 @@
 # Ignore vs code folder
 .vscode
 
-
+*.dSYM
