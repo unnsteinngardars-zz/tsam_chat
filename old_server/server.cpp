@@ -606,6 +606,10 @@ int main(int argc, char const *argv[])
 		/* wait for incomming client/s */
 		if (select(max_file_descriptor + 1, &read_set, NULL, NULL, 0) < 0)
 		{
+			if (errno == EBADF)
+			{
+				printf("Bad file descriptor error");
+			}
 			error("Failed to receive client connection");
 		}
 
