@@ -535,9 +535,9 @@ int Server::run()
 					memset(buffer, 0, MAX_BUFFER_SIZE);
 					int read_bytes = recv(i, buffer, MAX_BUFFER_SIZE, 0);
 					if (read_bytes < 0){
-						if (errno != EWOULDBLOCK || errno != EAGAIN)
+						if (!(errno == EWOULDBLOCK || errno == EAGAIN))
 						{
-							socket_utilities::error("Error reading from client");
+							close(i);
 						}
 					}
 					else if (read_bytes == 0){
