@@ -278,7 +278,7 @@ void Server::execute_command(BufferContent& content_buffer)
 	{
 		printf("display server id\n");
 
-		socket_utilities::write_to_client(fd, id);
+		socket_utilities::write_to_client(fd, id + "\n");
 	}
 
 	else if ((!command.compare("CONNECT"))) 
@@ -370,6 +370,7 @@ void Server::execute_command(BufferContent& content_buffer)
 		if( (!sub_command.compare("ID")) )
 		{
 			printf("change id\n");
+			set_fortune();
 		}
 	}
 	else if ( (!command.compare("HELP")) )
