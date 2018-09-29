@@ -18,5 +18,9 @@ int main(int argc, char const *argv[])
 	/* code */
 	// 50001, 50002, 50003
 	//
+	if (argc < 4)
+	{
+		error("invalid argument count, send in three ports to knock on as arguments");
+	}
 	return 0;
 }

@@ -453,7 +453,7 @@ void Server::parse_buffer(char * buffer, int fd)
 */
 int Server::run()
 {
-	int MIN_PORT = 1024;
+	int MIN_PORT = 49152;
 	int MAX_PORT = 65532;
 	
 	/* zero the active set */
