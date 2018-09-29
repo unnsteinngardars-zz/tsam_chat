@@ -314,8 +314,8 @@ void Server::execute_command(BufferContent& buffer_content)
 			remove_from_set(username);
 
 		}
-		socket_utilities::close_socket(fd);
 		FD_CLR(fd, &active_set);
+		socket_utilities::close_socket(fd);
 
 
 	}
@@ -538,6 +538,7 @@ int Server::run()
 						if (!(errno == EWOULDBLOCK || errno == EAGAIN))
 						{
 							close(i);
+							FD_CLR(i, &active_set);
 						}
 					}
 					else if (read_bytes == 0){
@@ -552,8 +553,8 @@ int Server::run()
 							usernames.erase(i);
 							remove_from_set(username);
 						}
-						socket_utilities::close_socket(i);
 						FD_CLR(i, &active_set);
+						socket_utilities::close_socket(i);
 					}
 					else {
 						parse_buffer(buffer, i);
