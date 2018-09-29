@@ -38,10 +38,10 @@ class Server
 	void display_commands(int fd);
 	bool add_user(BufferContent& buffer_content, std::string& feedback_message);
 	void send_to_all(BufferContent& buffer_content);
-	void display_users(BufferContent& content_buffer);
+	void display_users(BufferContent& buffer_content);
 	bool user_exists(int fd);
 	int get_fd_by_user(std::string username);
-	void send_to_user(int rec_fd, BufferContent& content_buffer);
+	void send_to_user(int rec_fd, BufferContent& buffer_content);
 	void remove_from_set(std::string username);
 	void set_fortune();
 	std::string get_fortune();

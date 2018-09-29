@@ -110,46 +110,6 @@ int Server::accept_connection(int socket, sockaddr_in& address, socklen_t & leng
 }
 
 
-BufferContent Server::parse_buffer(char * buffer, int fd)
-{
-	BufferContent content_buffer;
-	content_buffer.set_file_descriptor(fd);
-
-	int buffer_length = strlen(buffer);
-	char local_buffer[buffer_length];
-	memset(local_buffer, 0, buffer_length);
-	strncpy(local_buffer, buffer, buffer_length + 1);
-	// printf("buffer_length: %d\n", strlen(local_buffer));
-
-	char * first = strtok(local_buffer, " ");
-	char * second = strtok(NULL, " ");
-	char * third = strtok(NULL, " ");
-	
-	/* work with first string of buffer */
-	string_utilities::trim_cstr(first);
-	std::string command = (strlen(first) > 0) ? std::string(first) : "";
-	content_buffer.set_command(command);
-	
-	/* work with second string of buffer */
-	if (second != NULL)
-	{
-		string_utilities::trim_cstr(second);
-		content_buffer.set_sub_command(std::string(second));
-	}
-
-	/* work with third string of buffer */
-	if (third != NULL){
-		string_utilities::trim_cstr(third);
-		content_buffer.set_body(std::string(third));
-	}
-
-	// printf("command: %s\n", content_buffer.get_command().c_str());
-	// printf("sub_command: %s\n", content_buffer.get_sub_command().c_str());
-	// printf("body: %s\n", content_buffer.get_body().c_str());
-
-	return content_buffer;
-}
-
 
 void Server::display_commands(int fd)
 {
@@ -166,9 +126,9 @@ void Server::display_commands(int fd)
 	write(fd, help_message.c_str(), help_message.length());
 }
 
-void Server::display_users(BufferContent& content_buffer)
+void Server::display_users(BufferContent& buffer_content)
 {
-	int fd = content_buffer.get_file_descriptor();
+	int fd = buffer_content.get_file_descriptor();
 	std::string users = "\nLIST OF USERS:\n";
 	std::set<std::string>::iterator it;
 	for (it = usernames_set.begin(); it != usernames_set.end(); ++it){
@@ -177,7 +137,6 @@ void Server::display_users(BufferContent& content_buffer)
 	}
 	socket_utilities::write_to_client(fd, users);
 }
-
 
 bool Server::add_user(BufferContent& buffer_content, std::string& feedback_message)
 {
@@ -222,9 +181,9 @@ void Server::send_to_all(BufferContent& buffer_content)
 	}
 }
 
-void Server::send_to_user(int rec_fd, BufferContent& content_buffer)
+void Server::send_to_user(int rec_fd, BufferContent& buffer_content)
 {
-	std::string body = content_buffer.get_body();
+	std::string body = buffer_content.get_body();
 	if (FD_ISSET(rec_fd, &active_set)){
 		int write_bytes = socket_utilities::write_to_client(rec_fd, body);
 	}
@@ -267,12 +226,12 @@ int Server::get_fd_by_user(std::string username)
 	return fd;
 }
 
-void Server::execute_command(BufferContent& content_buffer)
+void Server::execute_command(BufferContent& buffer_content)
 {	
-	std::string command = content_buffer.get_command();
+	std::string command = buffer_content.get_command();
 	std::string sub_command;
 	std::string feedback_message;
-	int fd = content_buffer.get_file_descriptor();
+	int fd = buffer_content.get_file_descriptor();
 
 	if ((!command.compare("ID"))) 
 	{
@@ -283,10 +242,10 @@ void Server::execute_command(BufferContent& content_buffer)
 
 	else if ((!command.compare("CONNECT"))) 
 	{	
-		if (add_user(content_buffer, feedback_message)){
+		if (add_user(buffer_content, feedback_message)){
 			// write to all
-			content_buffer.set_body(feedback_message);
-			send_to_all(content_buffer);
+			buffer_content.set_body(feedback_message);
+			send_to_all(buffer_content);
 		}
 		else{
 			write(fd, feedback_message.c_str(), feedback_message.length());
@@ -298,8 +257,8 @@ void Server::execute_command(BufferContent& content_buffer)
 		
 		if (user_exists(fd)){
 			std::string username = usernames.at(fd);
-			content_buffer.set_body(username + " has left the chat\n");
-			send_to_all(content_buffer);
+			buffer_content.set_body(username + " has left the chat\n");
+			send_to_all(buffer_content);
 			usernames.erase(fd);
 			remove_from_set(username);
 
@@ -311,12 +270,12 @@ void Server::execute_command(BufferContent& content_buffer)
 	}
 	else if ((!command.compare("WHO"))) 
 	{
-		display_users(content_buffer);
+		display_users(buffer_content);
 
 	}
 	else if ((!command.compare("MSG"))) 
 	{
-		sub_command = content_buffer.get_sub_command();
+		sub_command = buffer_content.get_sub_command();
 		if (user_exists(fd)){
 			// get sending user
 			std::string sending_user = usernames.at(fd);
@@ -324,8 +283,8 @@ void Server::execute_command(BufferContent& content_buffer)
 			{
 				// send to all
 				printf("send to all\n");
-				content_buffer.set_body(sending_user + ": " + content_buffer.get_body() + "\n");
-				send_to_all(content_buffer);
+				buffer_content.set_body(sending_user + ": " + buffer_content.get_body() + "\n");
+				send_to_all(buffer_content);
 			}
 			else
 			{
@@ -336,8 +295,8 @@ void Server::execute_command(BufferContent& content_buffer)
 					// do not send to yourself
 					if(fd != rec_fd)
 					{	
-						content_buffer.set_body(sending_user + ": " + content_buffer.get_body() + "\n");
-						send_to_user(rec_fd, content_buffer);
+						buffer_content.set_body(sending_user + ": " + buffer_content.get_body() + "\n");
+						send_to_user(rec_fd, buffer_content);
 					}
 					else
 					{
@@ -366,7 +325,7 @@ void Server::execute_command(BufferContent& content_buffer)
 	}
 	else if ((!command.compare("CHANGE"))) 
 	{
-		sub_command = content_buffer.get_sub_command();
+		sub_command = buffer_content.get_sub_command();
 		if( (!sub_command.compare("ID")) )
 		{
 			printf("change id\n");
@@ -375,7 +334,7 @@ void Server::execute_command(BufferContent& content_buffer)
 	}
 	else if ( (!command.compare("HELP")) )
 	{
-		display_commands(content_buffer.get_file_descriptor());
+		display_commands(buffer_content.get_file_descriptor());
 	}
 
 	else
@@ -386,6 +345,48 @@ void Server::execute_command(BufferContent& content_buffer)
 
 }
 
+
+/*
+	CONNECT username/ID/CHANGE ID/LEAVE
+*/
+
+BufferContent Server::parse_buffer(char * buffer, int fd)
+{
+	BufferContent buffer_content;
+	buffer_content.set_file_descriptor(fd);
+
+	int buffer_length = strlen(buffer);
+	char local_buffer[buffer_length];
+	memset(local_buffer, 0, buffer_length);
+	memcpy(local_buffer, buffer, buffer_length + 1);
+
+
+	// printf("buffer_length: %d\n", strlen(local_buffer));
+
+	char * first = strtok(local_buffer, " ");
+	char * second = strtok(NULL, " ");
+	char * third = strtok(NULL, " ");
+	
+	/* work with first string of buffer */
+	string_utilities::trim_cstr(first);
+	std::string command = (strlen(first) > 0) ? std::string(first) : "";
+	buffer_content.set_command(command);
+	
+	/* work with second string of buffer */
+	if (second != NULL)
+	{
+		string_utilities::trim_cstr(second);
+		buffer_content.set_sub_command(std::string(second));
+	}
+
+	/* work with third string of buffer */
+	if (third != NULL){
+		string_utilities::trim_cstr(third);
+		buffer_content.set_body(std::string(third));
+	}
+
+	return buffer_content;
+}
 
 
 int Server::run()
@@ -420,9 +421,7 @@ int Server::run()
 	int second_port = ntohs(servers.at(1).second.sin_port);
 	int third_port = ntohs(servers.at(2).second.sin_port);
 	printf("ports %d %d %d\n", first_port, second_port, third_port);
-
 	max_file_descriptor = servers.at(servers.size() - 1).first;
-	printf("max: %d\n", max_file_descriptor);
 	while (1)
 	{
 		/* copy active_set to read_set to not loose information about active_set status since select alters the set passed as argument */
@@ -483,14 +482,14 @@ int Server::run()
 						socket_utilities::error("Error reading from client");
 					}
 					else if (read_bytes == 0){
-						BufferContent content_buffer;
+						BufferContent buffer_content;
 						std::string feedback_message;
-						content_buffer.set_file_descriptor(i);
+						buffer_content.set_file_descriptor(i);
 						
 						if (user_exists(i)){
 							std::string username = usernames.at(i);
-							content_buffer.set_body(username + " has left the chat");
-							send_to_all(content_buffer);
+							buffer_content.set_body(username + " has left the chat");
+							send_to_all(buffer_content);
 							usernames.erase(i);
 							remove_from_set(username);
 						}

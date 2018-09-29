@@ -12,11 +12,11 @@ void string_utilities::trim_cstr(char * cstr)
 		int size = strlen(cstr);
 		char temp[size];
 		memset(temp, 0, size);
-		strncpy(temp, cstr, size + 1);
+		memcpy(temp, cstr, size + 1);
 		std::string str(cstr);
 		std::string trimmed_str = trim_string(str);
 		memset(cstr, 0, trimmed_str.length());
-		strncpy(cstr, trimmed_str.c_str(), trimmed_str.length() + 1);
+		memcpy(cstr, trimmed_str.c_str(), trimmed_str.length() + 1);
 	}
 	return;
 }
