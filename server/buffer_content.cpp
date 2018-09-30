@@ -1,5 +1,8 @@
 #include "buffer_content.h"
 
+/**
+ * Creates an empty BufferContent with 
+*/
 BufferContent::BufferContent()
 {
 	command = "";
@@ -7,53 +10,70 @@ BufferContent::BufferContent()
 	body = "";
 };
 
-void BufferContent::set_command(std::string c)
-{
-	command = c;
-}
-
-void BufferContent::set_sub_command(std::string s)
-{
-	sub_command = s;
-}
-
-void BufferContent::set_body(std::string b)
-{
-	body = b;
-}
-
-std::string BufferContent::get_body()
-{
-	return body;
-}
-
-std::string BufferContent::get_command()
-{
-	return command;
-}
-
-std::string BufferContent::get_sub_command()
-{
-	return sub_command;
-}
-
+/**
+ * Set the file descriptor
+*/
 void BufferContent::set_file_descriptor(int fd)
 {
 	socket = fd;
 }
 
+/**
+ * Get the file descriptor
+*/
 int BufferContent::get_file_descriptor()
 {
 	return socket;
 }
 
-void BufferContent::set_sending_user(std::string su)
+
+
+/**
+ * Set the command
+*/
+void BufferContent::set_command(std::string c)
 {
-	sending_user = su;
+	command = c;
 }
 
-std::string BufferContent::get_sending_user()
+/**
+ * Get the command
+*/
+std::string BufferContent::get_command()
 {
-	return sending_user;
+	return command;
 }
+
+/**
+ * Set the sub command
+*/
+void BufferContent::set_sub_command(std::string s)
+{
+	sub_command = s;
+}
+
+/**
+ * Get the sub command
+*/
+std::string BufferContent::get_sub_command()
+{
+	return sub_command;
+}
+
+/**
+ * Set the body
+*/
+void BufferContent::set_body(std::string b)
+{
+	body = b;
+}
+
+/**
+ * Get the body
+*/
+std::string BufferContent::get_body()
+{
+	return body;
+}
+
 

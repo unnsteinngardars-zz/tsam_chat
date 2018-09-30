@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
-
+/**
+ * Utilities for string and vector functionality
+*/
 namespace string_utilities
 {
 	void trim_cstr(char* cstr);

@@ -343,7 +343,6 @@ void Server::execute_command(BufferContent& buffer_content)
 	{
 		sub_command = buffer_content.get_sub_command();
 		if (user_exists(fd)){
-			// get sending user
 			std::string sending_user = usernames.at(fd);
 			if (!sub_command.compare("ALL"))
 			{
@@ -368,7 +367,6 @@ void Server::execute_command(BufferContent& buffer_content)
 					{
 						feedback_message = "Cannot send message to yourself\n";
 						write_to_client(fd, feedback_message);
-						// write(fd,feedback_message.c_str(), feedback_message.length());
 					}
 				}
 				// no user found
@@ -377,7 +375,6 @@ void Server::execute_command(BufferContent& buffer_content)
 					printf("no user found\n");
 					feedback_message = "No such user\n";
 					write_to_client(fd, feedback_message);
-					// write(fd, feedback_message.c_str(), feedback_message.length());
 				}
 			}
 		}
@@ -421,9 +418,12 @@ void Server::parse_buffer(char * buffer, int fd)
 	char local_buffer[buffer_length];
 	memset(local_buffer, 0, buffer_length);
 	memcpy(local_buffer, buffer, buffer_length + 1);
+
+	/* split input string by \ to get a vector of commands */
 	std::string delimeter = "\\";
 	std::vector<std::string> vector_buffer = string_utilities::split_by_delimeter(std::string(local_buffer), delimeter);
 	
+	/* for each command, assign variables to buffer_content and execute command */
 	for (int i = 0; i < vector_buffer.size(); ++i)
 	{
 		BufferContent buffer_content;
@@ -505,6 +505,7 @@ int Server::run()
 			socket_utilities::error("Failed to receive client connection");
 		}
 
+		/* Loop from 0 to max FD to act on any read ready file descriptor */
 		for (int i = 0; i <= max_file_descriptor; i++)
 		{
 			if (FD_ISSET(i, &read_set))
@@ -534,12 +535,13 @@ int Server::run()
 					int client_fd = accept_connection(i, client, client_length);
 					close(client_fd);
 				}
-				/* if i is the third open port */
+				/* if i is the third open port which is the connect port */
 				else if (i == servers.at(2).first)
 				{
 					stop_timer();
 					int seconds = get_time_in_seconds();
-					if (seconds < 4 && knocked_first && knocked_second) {
+					/* if time is within 2 seconds and first and second knocks are true then let in */
+					if (seconds < 2 && knocked_first && knocked_second) {
 						client_length = sizeof(client);
 						int client_fd = accept_connection(i, client, client_length);
 						printf("Connection established from %s port %d and fd %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), client_fd);
@@ -572,6 +574,7 @@ int Server::run()
 							close(i);
 						}
 					}
+					/* client disconnects friendly without using the LEAVE command*/
 					else if (read_bytes == 0){
 						BufferContent buffer_content;
 						std::string feedback_message;

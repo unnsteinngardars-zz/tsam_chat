@@ -1,5 +1,8 @@
 #include "server.h"
 
+/**
+ * Entry for the server
+*/
 int main(int argc, char const *argv[])
 {
 	Server server = Server();

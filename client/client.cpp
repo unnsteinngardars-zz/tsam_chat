@@ -12,12 +12,18 @@
 struct hostent* server;
 int BUFFER_LENGTH = 1024;
 
+/**
+ * Display an error and exit
+*/
 void error(const char *msg)
 {
 	perror(msg);
 	exit(EXIT_FAILURE);
 }
 
+/**
+ * Create a socket FD
+*/
 int create_socket()
 {
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -28,9 +34,11 @@ int create_socket()
 	return fd;
 }
 
+/**
+ * Knock on a port
+*/
 void knock(int fd, sockaddr_in& address, int port)
 {
-
 	memset(&address, 0, sizeof(address));
 	address.sin_family = AF_INET;
 	address.sin_port = htons(port);		
@@ -41,12 +49,12 @@ void knock(int fd, sockaddr_in& address, int port)
 	{
 		error("Error knocking");
 	}
-	
 }
 
-// Some issue when trying to connect with wrong port sequence and then trying the right one
-// it fails but when retrying it succeeds
 
+/**
+ * Connect to the third port.
+*/
 void connect(int fd, sockaddr_in& address, int port)
 {
 	fd_set read_set, active_set;
@@ -63,8 +71,10 @@ void connect(int fd, sockaddr_in& address, int port)
 	{
 		error("Error connecting");
 	}
+	
 	FD_ZERO(&active_set);
 	FD_SET(fd, &active_set);
+	/* add stdin to the active set */
 	FD_SET(0, &active_set);
 
 	while(1)
@@ -98,17 +108,18 @@ void connect(int fd, sockaddr_in& address, int port)
 						char local_buffer[buffer_length];
 						memset(local_buffer, 0, buffer_length);
 						memcpy(local_buffer, recv_buffer, buffer_length + 1);		
-						// printf("%s", local_buffer);
-						printf("\033[0K");
-						printf("\r");
 						printf("%s", local_buffer);
+
+						/* some traces of us trying to move the cursor and then we wanted to store the cin buffer and restore it again */
+						// printf("\033[0K");
+						// printf("\r");
+						// printf("%s", local_buffer);
 
 					}
 				}
 				/* stdin */
 				else if (i == 0)
 				{
-					// printf("> ");
 					memset(send_buffer, 0, BUFFER_LENGTH);
 					fgets(send_buffer, BUFFER_LENGTH, stdin);
 					int write_bytes = send(fd, send_buffer, BUFFER_LENGTH, 0);
@@ -126,15 +137,12 @@ void connect(int fd, sockaddr_in& address, int port)
 int main(int argc, char *argv[])
 {
 	/* code */
-	// 50001, 50002, 50003
 	if (argc < 5)
 	{
 		error("invalid argument count, send in a host and three ports to knock on as arguments");
 	}
 
-
 	server = gethostbyname(argv[1]);
-
 
 	struct sockaddr_in first_knock;
 	struct sockaddr_in second_knock;

@@ -17,3 +17,4 @@ std::string time_utilities::get_time_stamp()
 	string_utilities::trim_cstr(buffer);
 	return std::string(buffer);
 }
+

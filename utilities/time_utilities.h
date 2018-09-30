@@ -8,6 +8,9 @@
 
 #include "string_utilities.h"
 
+/**
+ * Utilities for time functionality
+*/
 namespace time_utilities
 {
 	std::string get_time_stamp();
