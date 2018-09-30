@@ -35,6 +35,8 @@ namespace socket_utilities
 	void close_socket(int fd);
 
 	int write_to_client(int fd, std::string message);
+
+	int connect(int fd, sockaddr_in& address);
 } 
 
 #endif

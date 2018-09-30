@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <errno.h>
@@ -38,6 +39,9 @@ class Server
 	fd_set active_set, read_set; // might want to add write_set
 	int max_file_descriptor;
 	std::string id;
+
+	struct hostent* destination_server;
+
 
 	void display_commands(int fd);
 	bool add_user(BufferContent& buffer_content, std::string& feedback_message);
@@ -66,6 +70,9 @@ class Server
 	int accept_connection(int socket, sockaddr_in& address, socklen_t & length);
 	void parse_buffer(char * buffer, int fd);
 	void execute_command(BufferContent& buffer_content);
+	void set_scan_destination(std::string dest_host);
+	void knock_port(int port, char* buffer);
+	void scan(int min_port, int max_port, bool scan_when_running);
 };
 
 #endif

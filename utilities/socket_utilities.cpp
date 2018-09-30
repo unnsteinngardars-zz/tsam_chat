@@ -87,3 +87,9 @@ int socket_utilities::write_to_client(int fd, std::string message)
 	int write_bytes = send(fd, message.c_str(), message.size(), 0);
 	return write_bytes;
 }
+
+int socket_utilities::connect(int fd, sockaddr_in& address)
+{
+	int n = connect(fd, (struct sockaddr *)& address, sizeof(address));
+	return n;
+}

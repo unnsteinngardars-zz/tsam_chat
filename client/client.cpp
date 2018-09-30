@@ -21,6 +21,7 @@ void error(const char *msg)
 	exit(EXIT_FAILURE);
 }
 
+
 /**
  * Create a socket FD
 */
@@ -61,6 +62,9 @@ void connect(int fd, sockaddr_in& address, int port)
 
 	char recv_buffer[BUFFER_LENGTH];
 	char send_buffer[BUFFER_LENGTH];
+	memset(recv_buffer, 0, BUFFER_LENGTH);
+	memset(send_buffer, 0, BUFFER_LENGTH);
+
 	memset(&address, 0, sizeof(address));
 	address.sin_family = AF_INET;
 	address.sin_port = htons(port);		
@@ -80,14 +84,17 @@ void connect(int fd, sockaddr_in& address, int port)
 	while(1)
 	{	
 		read_set = active_set;
+		fflush(stdout);
 		if (select(fd + 1, &read_set, NULL, NULL, 0) < 0)
 		{
 			error("Failed to receive select socket");
 		}
 		
+		fflush(stdout);
 		for(int i = 0; i <= fd; ++i)
 		{
-			if (FD_ISSET(i, &read_set)){
+			if (FD_ISSET(i, &read_set))
+			{
 				/* client */
 				if (i == fd)
 				{
@@ -103,17 +110,14 @@ void connect(int fd, sockaddr_in& address, int port)
 						close(fd);
 						return;
 					}
-					else {
+					else 
+					{
+
 						int buffer_length = strlen(recv_buffer);
 						char local_buffer[buffer_length];
 						memset(local_buffer, 0, buffer_length);
-						memcpy(local_buffer, recv_buffer, buffer_length + 1);		
+						memcpy(local_buffer, recv_buffer, buffer_length + 1);
 						printf("%s", local_buffer);
-
-						/* some traces of us trying to move the cursor and then we wanted to store the cin buffer and restore it again */
-						// printf("\033[0K");
-						// printf("\r");
-						// printf("%s", local_buffer);
 
 					}
 				}
@@ -127,6 +131,10 @@ void connect(int fd, sockaddr_in& address, int port)
 					{
 						error("Error writing to server");
 					}
+				}
+				else if (i == 1)
+				{
+					// printf("%s\n")
 				}
 			}
 		}

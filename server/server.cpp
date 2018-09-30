@@ -308,19 +308,22 @@ void Server::execute_command(BufferContent& buffer_content)
 	else if ((!command.compare("CONNECT"))) 
 	{	
 		std::cout << buffer_content.get_sub_command() + buffer_content.get_body() + " has connected" << std::endl;
-		if (add_user(buffer_content, feedback_message)){
+		if (add_user(buffer_content, feedback_message))
+		{
 			// write to all
 			buffer_content.set_body(feedback_message);
 			send_to_all(buffer_content);
 		}
-		else{
+		else
+		{
 			write(fd, feedback_message.c_str(), feedback_message.length());
 		}
 
 	}
 	else if ((!command.compare("LEAVE"))) 
 	{
-		if (user_exists(fd)){
+		if (user_exists(fd))
+		{
 			std::string username = usernames.at(fd);
 			std::cout << username <<  " has left" << std::endl;
 			buffer_content.set_body(username + " has left the chat\n");
@@ -474,7 +477,8 @@ int Server::run()
 	create_sockets();
 
 	/* find 3 consecutive ports to bind to */
-	if (socket_utilities::find_consecutive_ports(MIN_PORT, MAX_PORT, servers) < 0){
+	if (socket_utilities::find_consecutive_ports(MIN_PORT, MAX_PORT, servers) < 0)
+	{
 		socket_utilities::error("Failed to bind to ports");
 	}
 
@@ -541,7 +545,8 @@ int Server::run()
 					stop_timer();
 					int seconds = get_time_in_seconds();
 					/* if time is within 2 seconds and first and second knocks are true then let in */
-					if (seconds < 2 && knocked_first && knocked_second) {
+					if (seconds < 2 && knocked_first && knocked_second) 
+					{
 						client_length = sizeof(client);
 						int client_fd = accept_connection(i, client, client_length);
 						printf("Connection established from %s port %d and fd %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port), client_fd);
@@ -553,7 +558,8 @@ int Server::run()
 						knocked_second = false;
 
 					}
-					else {
+					else 
+					{
 						struct sockaddr_in client;
 						socklen_t client_length;
 						int client_fd = accept_connection(i, client, client_length);
@@ -564,10 +570,12 @@ int Server::run()
 
 				}
 				/* i is some already connected client that has send a message */
-				else {
+				else 
+				{
 					memset(buffer, 0, MAX_BUFFER_SIZE);
 					int read_bytes = recv(i, buffer, MAX_BUFFER_SIZE, 0);
-					if (read_bytes < 0){
+					if (read_bytes < 0)
+					{
 						if (!(errno == EWOULDBLOCK || errno == EAGAIN))
 						{
 							FD_CLR(i, &active_set);
@@ -575,12 +583,14 @@ int Server::run()
 						}
 					}
 					/* client disconnects friendly without using the LEAVE command*/
-					else if (read_bytes == 0){
+					else if (read_bytes == 0)
+					{
 						BufferContent buffer_content;
 						std::string feedback_message;
 						buffer_content.set_file_descriptor(i);
 						
-						if (user_exists(i)){
+						if (user_exists(i))
+						{
 							std::string username = usernames.at(i);
 							std::cout << username <<  " has left" << std::endl;
 							buffer_content.set_body(username + " has left the chat");
@@ -591,7 +601,8 @@ int Server::run()
 						FD_CLR(i, &active_set);
 						socket_utilities::close_socket(i);
 					}
-					else {
+					else 
+					{
 						parse_buffer(buffer, i);
 					}
 				}
@@ -600,4 +611,88 @@ int Server::run()
 		}
 	}
 	return 0;
+}
+
+
+void Server::set_scan_destination(std::string dest_host)
+{
+	destination_server = gethostbyname(dest_host.c_str());
+
+}
+
+
+void Server::knock_port(int port, char * buffer)
+{
+	memset(buffer, 0, 1024);
+	std::string command = "CONNECT Y_Project_2_22\\ID\\CHANGE ID\\LEAVE";
+	int fd = socket_utilities::create_socket();
+	struct sockaddr_in address;
+	memset(&address, 0, sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_port = htons(port);		
+	memcpy((char*)&address.sin_addr.s_addr, (char*) destination_server->h_addr, destination_server->h_length);
+	int i = socket_utilities::connect(fd, address);
+	if (i < 1)
+	{
+		return;
+	}
+
+	else
+	{
+		int send_bytes = send(fd, command.c_str(), command.length(), 0);
+		if (send_bytes < 1)
+		{
+			return;
+		}
+		int read_bytes = recv(fd, buffer, 1024, 0);
+		if (read_bytes < 1)
+		{
+			return;
+		}
+		else
+		{	
+			printf("port: %d\n", port);
+			printf("%s\n", buffer);
+			printf("CONNECTED!\n");
+			return;
+		}
+		
+	}
+}
+
+
+
+void Server::scan(int min_port, int max_port, bool scan_when_running)
+{
+	
+	char buffer[1024];
+	
+	for(int i = min_port; i < max_port; ++i)
+	{
+		int first_port = i;
+		int second_port = i + 1;
+		int third_port = i + 2;
+
+		if (scan_when_running)
+		{
+			if (i != ntohs(servers.at(0).second.sin_port) && i !=  ntohs(servers.at(1).second.sin_port) && i != ntohs(servers.at(2).second.sin_port) && scan_when_running)
+			{
+				knock_port(first_port, buffer);
+				knock_port(second_port, buffer);
+				knock_port(third_port, buffer);
+				printf("buffer: %s\n", buffer);
+			}
+			else
+			{
+				break;
+			}	
+		}
+		else
+		{
+			knock_port(first_port, buffer);
+			knock_port(second_port, buffer);
+			knock_port(third_port,buffer);
+		}
+	
+	}
 }
