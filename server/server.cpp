@@ -8,7 +8,6 @@ Server::Server()
 	set_fortune();
 }
 
-
 /**
  * Set the fortune
 */
@@ -499,6 +498,10 @@ int Server::run()
 		/* wait for incomming client/s */
 		if (select(max_file_descriptor + 1, &read_set, NULL, NULL, 0) < 0)
 		{
+			if (errno == EBADF)
+			{
+				printf("Bad file descriptor\n");
+			}
 			socket_utilities::error("Failed to receive client connection");
 		}
 
@@ -546,8 +549,6 @@ int Server::run()
 						update_max_fd(client_fd);
 						knocked_first = false;
 						knocked_second = false;
-						// knock_start = NULL;
-						// knock_stop = NULL;
 
 					}
 					else {
@@ -557,8 +558,6 @@ int Server::run()
 						close(client_fd);
 						knocked_first = false;
 						knocked_second = false;
-						// knock_start = NULL;
-						// knock_stop = NULL;
 					}
 
 				}
