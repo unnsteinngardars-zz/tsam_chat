@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <sstream>
 
 struct hostent* server;
 int BUFFER_LENGTH = 1024;
@@ -64,7 +65,7 @@ void connect(int fd, sockaddr_in& address, int port)
 	}
 	FD_ZERO(&active_set);
 	FD_SET(fd, &active_set);
-	FD_SET(1, &active_set);
+	FD_SET(0, &active_set);
 
 	while(1)
 	{	
@@ -97,16 +98,19 @@ void connect(int fd, sockaddr_in& address, int port)
 						char local_buffer[buffer_length];
 						memset(local_buffer, 0, buffer_length);
 						memcpy(local_buffer, recv_buffer, buffer_length + 1);		
+						// printf("%s", local_buffer);
+						printf("\033[0K");
+						printf("\r");
 						printf("%s", local_buffer);
+
 					}
 				}
 				/* stdin */
-				else if (i == 1)
+				else if (i == 0)
 				{
 					// printf("> ");
 					memset(send_buffer, 0, BUFFER_LENGTH);
 					fgets(send_buffer, BUFFER_LENGTH, stdin);
-
 					int write_bytes = send(fd, send_buffer, BUFFER_LENGTH, 0);
 					if (write_bytes < 0)
 					{
