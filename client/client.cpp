@@ -38,7 +38,7 @@ void knock(int fd, sockaddr_in& address, int port)
 	int n = connect(fd, (struct sockaddr *)& address, sizeof(address));
 	if (n < 0)
 	{
-		error("omg! cannot connect");
+		error("Error knocking");
 	}
 	
 }
@@ -60,13 +60,12 @@ void connect(int fd, sockaddr_in& address, int port)
 	int n = connect(fd, (struct sockaddr *)& address, sizeof(address));
 	if (n < 0)
 	{
-		error("error connecting");
+		error("Error connecting");
 	}
 	FD_ZERO(&active_set);
 	FD_SET(fd, &active_set);
-	FD_SET(0, &active_set);
+	FD_SET(1, &active_set);
 
-	fflush(stdout);
 	while(1)
 	{	
 		read_set = active_set;
@@ -99,11 +98,10 @@ void connect(int fd, sockaddr_in& address, int port)
 						memset(local_buffer, 0, buffer_length);
 						memcpy(local_buffer, recv_buffer, buffer_length + 1);		
 						printf("%s", local_buffer);
-						fflush(stdout);
 					}
 				}
 				/* stdin */
-				else if (i == 0)
+				else if (i == 1)
 				{
 					// printf("> ");
 					memset(send_buffer, 0, BUFFER_LENGTH);
